@@ -1,0 +1,4 @@
+ - implement actual game rules!
+ - implement transcript writing
+ - implement frontend that interfaces with the server
+   (so I can play against test players)
