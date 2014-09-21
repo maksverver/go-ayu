@@ -1,0 +1,20 @@
+<html>
+ <head>
+  <title>Ayu</title>
+  <link rel="stylesheet" type="text/css" href="style.css">
+ </head>
+ <body style="text-align:center">
+  <h1>Ayu</h1>
+  <div id="boardHolder"><div id="board"></div></div>
+  <p id="nextPlayer">
+    <span id="whiteToMove" style="display:none">White to move.</span>
+    <span id="blackToMove" style="display:none">Black to move.</span>
+    <em id="yourTurn" style="display:none">It's your turn!</em>
+  </p>
+  <label><input id="playSound" type="checkbox" checked> Play sound on move.</label>
+  <audio id="turnNotification"><source src="ding.mp3" type="audio/mp3"></audio>
+  <script src="parameters.js"></script>
+  <script src="board.js"></script>
+  <script src="game.js"></script>
+ </body>
+</html>

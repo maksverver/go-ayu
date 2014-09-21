@@ -1,0 +1,40 @@
+body {
+	color: black;
+	background: white;
+	font: 12pt sans-serif;
+}
+
+#board {
+	display: inline-block;
+}
+
+#board .cell {
+	background: lightGray;
+	display: inline-block;
+	width: 37px;
+	height: 37px;
+	background-image: url(empty.png);
+}
+
+#board .cell.white {
+	background-image: url(white.png);
+}
+
+#board .cell.black {
+	background-image: url(black.png);
+}
+
+#board .cell.selected {
+	filter: invert(0.5);
+	-webkit-filter: invert(0.25);
+}
+
+#board .label {
+	display: inline-block;
+	width: 37px;
+	height: 37px;
+	overflow: hidden;
+	text-align: center;
+	font: 24px sans-serif;
+	color: lightGray;
+}
