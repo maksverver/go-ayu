@@ -102,10 +102,10 @@ func handleCreate(w http.ResponseWriter, r *http.Request) {
 
 func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	var update struct {
-		Game string
+		Game    string
 		Version int
-		Key string
-		Move ayu.Move
+		Key     string
+		Move    ayu.Move
 	}
 
 	if r.Method != "POST" {
@@ -114,11 +114,11 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Print("POST /update")
 
-	if body,err := ioutil.ReadAll(r.Body); err != nil {
+	if body, err := ioutil.ReadAll(r.Body); err != nil {
 		http.Error(w, "Internal Server Error", 500)
 		return
 	} else if json.Unmarshal(body, &update) != nil {
-		http.Error(w, "Bad Request\n" + err.Error(), 400)
+		http.Error(w, "Bad Request\n"+err.Error(), 400)
 		return
 	}
 
