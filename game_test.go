@@ -1,7 +1,8 @@
 package ayu
 
-import "testing"
 import "bytes"
+import "strings"
+import "testing"
 
 func testParseCoords(t *testing.T, input string, expect_c Coords, expect_ok bool) {
 	c, ok := ParseCoords(input)
@@ -77,4 +78,43 @@ func TestCreateState(t *testing.T) {
 ` {
 		t.Error(string(b.Bytes()))
 	}
+}
+
+func testWriteLog(t *testing.T, moves string, expected string) {
+	state := CreateState()
+	for _,part := range(strings.Fields(moves)) {
+		if move, ok := ParseMove(part); !ok {
+			t.Error("Could not parse move:", part)
+		} else if !state.Execute(move) {
+			t.Error("Could not execute move:", move)
+		}
+	}
+	var b bytes.Buffer
+	state.WriteLog(&b)
+	if b.String() != expected {
+		t.Error(`"` + expected  + `"`, `"` + b.String() + `"`)
+	}
+}
+
+func TestWriteLog(t *testing.T) {
+	testWriteLog(t, "", "")
+	testWriteLog(t, "D9-E9",
+		`  1. D9-E9
+`)
+	testWriteLog(t, "D9-E9 E10-F10",
+		`  1. D9-E9    E10-F10
+`)
+	testWriteLog(t, "D9-E9 E10-F10 B9-B10",
+		`  1. D9-E9    E10-F10
+  2. B9-B10
+`)
+	testWriteLog(t, "D9-E9 E10-F10 B9-B10 A6-A7",
+		`  1. D9-E9    E10-F10
+  2. B9-B10   A6-A7
+`)
+	testWriteLog(t, "D9-E9 E10-F10 B9-B10 A6-A7 J11-J10 C10-C9",
+		`  1. D9-E9    E10-F10
+  2. B9-B10   A6-A7
+  3. J11-J10  C10-C9
+`)
 }

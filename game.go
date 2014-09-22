@@ -167,7 +167,12 @@ func (s *State) WriteBoard(w io.Writer) {
 	}
 }
 
+// TODO: this should return an error
 func (s *State) WriteLog(w io.Writer) {
-	// TODO
-	w.Write([]byte("TODO"))
+	for i := 0; i < len(s.History)/2; i++ {
+		fmt.Fprintf(w, "%3d. %-8s %s\n", i+1, s.History[2*i], s.History[2*i+1])
+	}
+	if len(s.History)%2 == 1 {
+		fmt.Fprintf(w, "%3d. %s\n", len(s.History)/2+1, s.History[len(s.History)-1])
+	}
 }
