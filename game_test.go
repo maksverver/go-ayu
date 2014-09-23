@@ -63,7 +63,7 @@ func TestParseMove(t *testing.T) {
 func TestCreateState(t *testing.T) {
 	state := CreateState()
 	var b bytes.Buffer
-	state.WriteBoard(&b)
+	(&state.Fields).WriteBoard(&b)
 	if string(b.Bytes()) != `.+.+.+.+.+.
 -.-.-.-.-.-
 .+.+.+.+.+.

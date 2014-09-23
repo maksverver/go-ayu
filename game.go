@@ -10,11 +10,13 @@ const S = 11 // board size
 var coords_re = regexp.MustCompile("^([A-K])([1-9]|1[01])$")
 var move_re = regexp.MustCompile("^([A-K]([1-9]|1[01]))-([A-K]([1-9]|1[01]))$")
 
-// The next player is either +1 (white) or -1 (black)
 // Fields are represented as 0 (empty) or +1 (white piece) or -1 (black piece)
+type Fields [S][S]int
+
+// Game state consists of the current board and the history of moves played.
 type State struct {
-	Fields  [S][S]int // current board state
-	History []Move    // list of moves played so far
+	Fields  Fields
+	History []Move
 }
 
 // Field coordinates locate a field on the board.
@@ -98,17 +100,91 @@ func (s *State) generateMoves() <-chan Move {
 	return ch
 }
 
-func coordsInRange(c Coords) bool {
+func (c Coords) inRange() bool {
 	return 0 <= c[0] && c[0] < S && 0 <= c[1] && c[1] < S
 }
 
-func (s *State) Valid(move Move) bool {
+func abs(i int) int {
+	if i < 0 {
+		i = -i
+	}
+	return i
+}
+
+func (c Coords) distanceTo(d Coords) int {
+	return abs(c[0] - d[0]) + abs(c[1] - d[1])
+}
+
+func (m Move) inRange() bool {
+	return m[0].inRange() && m[1].inRange()
+}
+
+func (f *Fields) get(c Coords) *int {
+	return &f[c[0]][c[1]]
+}
+
+func (f *Fields) set(c Coords, p int) {
+	f[c[0]][c[1]] = p
+}
+
+func swapInts(p, q *int) {
+	*p, *q = *q, *p
+}
+
+func (f *Fields) swap(x, y Coords) {
+	swapFields(f.get(x), f.get(y))
+}
+
+func (f *Fields) relabelConnected(c Coords, p int, q int) int {
+	res := 0
+	if c.inRange() && *f.get(c) == p {
+		f.set(c, q)
+		res += 1 +
+			f.relabelConnected(Coords{c[0] - 1, c[1]}, p, q) +
+			f.relabelConnected(Coords{c[0] + 1, c[1]}, p, q) +
+			f.relabelConnected(Coords{c[0], c[1] - 1}, p, q) +
+			f.relabelConnected(Coords{c[0], c[1] + 1}, p, q)
+	}
+	return res
+}
+
+// Determines whether the given move keeps its unit connected.
+func (f Fields) keepsUnitConnected(move Move) bool {
+	player := *f.get(move[0])
+	size := (&f).relabelConnected(move[0], player, 7)
+	if size == 1 {
+		return move[0].distanceTo(move[1]) <= 1
+	}
+	f.swap(move[0], move[1])
+	return (&f).relabelConnected(move[1], 7, player) == size
+}
+
+// Calculates the distance to the nearest friendly unit from the unit
+// indicated by the given coordinates.  Returns 0 if no friendly units
+// are reachable.
+func (f *Fields) distanceToNearestFriendlyUnit(c Coords) int {
+	// TODO
+	return 0
+}
+
+// Determines whether the given move reduces the distance to the nearest
+// friendly unit.
+func (f Fields) reducesDistanceToNearestFriendlyUnit(m Move) bool {
+	d := f.distanceToNearestFriendlyUnit(m[0])
+	if d <= 0 {
+		return false
+	}
+	f.swap(m[0], m[1])
+	return f.distanceToNearestFriendlyUnit(m[1]) < d
+}
+
+func (s *State) Valid(m Move) bool {
 	p := s.NextPlayer()
-	// TODO: real implementation
-	// Need to check two conditions:
-	//  - move keeps unit connected
-	//  - move must reduce distance to nearest other unit
-	return coordsInRange(move[0]) && coordsInRange(move[1]) && s.Fields[move[0][0]][move[0][1]] == p && s.Fields[move[1][0]][move[1][1]] == 0
+	return m.inRange() &&
+		*s.Fields.get(m[0]) == p &&
+		*s.Fields.get(m[1]) == 0 &&
+		s.Fields.keepsUnitConnected(m) // &&
+	// s.Fields.reducesDistanceToNearestFriendlyUnit(m)
 }
 
 func (s *State) Over() bool {
@@ -127,9 +203,7 @@ func (s *State) ListMoves() (moves []interface{}) {
 func (s *State) Execute(arg interface{}) bool {
 	if m, ok := arg.(Move); ok && s.Valid(m) {
 		s.History = append(s.History, m)
-		p := &s.Fields[m[0][0]][m[0][1]]
-		q := &s.Fields[m[1][0]][m[1][1]]
-		*p, *q = *q, *p
+		s.Fields.swap(m[0], m[1])
 		return true
 	}
 	return false
@@ -147,12 +221,12 @@ func (s *State) Scores() (int, int) {
 	}
 }
 
-func (s *State) WriteBoard(w io.Writer) {
+func (fields *Fields) WriteBoard(w io.Writer) {
 	var line [S + 1]byte
 	line[S] = '\n'
 	for i := 0; i < S; i++ {
 		for j := 0; j < S; j++ {
-			switch s.Fields[i][j] {
+			switch fields[i][j] {
 			case 0:
 				line[j] = '.'
 			case -1:
