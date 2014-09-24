@@ -112,7 +112,21 @@ func abs(i int) int {
 }
 
 func (c Coords) distanceTo(d Coords) int {
-	return abs(c[0] - d[0]) + abs(c[1] - d[1])
+	return abs(c[0]-d[0]) + abs(c[1]-d[1])
+}
+
+func (c Coords) stepTo(dir int) Coords {
+	switch dir {
+	case 0:
+		return Coords{c[0] + 1, c[1]}
+	case 1:
+		return Coords{c[0], c[1] + 1}
+	case 2:
+		return Coords{c[0] - 1, c[1]}
+	case 3:
+		return Coords{c[0], c[1] - 1}
+	}
+	panic(fmt.Sprintf("invalid direction: %d", dir))
 }
 
 func (m Move) inRange() bool {
@@ -132,39 +146,90 @@ func swapInts(p, q *int) {
 }
 
 func (f *Fields) swap(x, y Coords) {
-	swapFields(f.get(x), f.get(y))
+	swapInts(f.get(x), f.get(y))
 }
 
 func (f *Fields) relabelConnected(c Coords, p int, q int) int {
 	res := 0
 	if c.inRange() && *f.get(c) == p {
 		f.set(c, q)
-		res += 1 +
-			f.relabelConnected(Coords{c[0] - 1, c[1]}, p, q) +
-			f.relabelConnected(Coords{c[0] + 1, c[1]}, p, q) +
-			f.relabelConnected(Coords{c[0], c[1] - 1}, p, q) +
-			f.relabelConnected(Coords{c[0], c[1] + 1}, p, q)
+		res++
+		for dir := 0; dir < 4; dir++ {
+			res += f.relabelConnected(c.stepTo(dir), p, q)
+		}
 	}
 	return res
 }
 
 // Determines whether the given move keeps its unit connected.
-func (f Fields) keepsUnitConnected(move Move) bool {
+// Returns 0 if this move disconnects the unit.
+// Returns 1 if this move keeps the unit connected.
+// Returns 2 if this move connects this unit to another one.
+func (f Fields) keepsUnitConnected(move Move) int {
 	player := *f.get(move[0])
 	size := (&f).relabelConnected(move[0], player, 7)
-	if size == 1 {
-		return move[0].distanceTo(move[1]) <= 1
+	if size == 1 && move[0].distanceTo(move[1]) > 1 {
+		return 0 // singleton must move to adjacent field
+	}
+	res := 1
+	for dir := 0; dir < 4; dir++ {
+		c := move[1].stepTo(dir)
+		if c.inRange() && *f.get(c) == player {
+			res = 2 // destination adjacent to friendly unit
+			break
+		}
 	}
 	f.swap(move[0], move[1])
-	return (&f).relabelConnected(move[1], 7, player) == size
+	if (&f).relabelConnected(move[1], 7, player) != size {
+		return 0 // unit was disconnected!
+	}
+	return res
 }
 
 // Calculates the distance to the nearest friendly unit from the unit
 // indicated by the given coordinates.  Returns 0 if no friendly units
 // are reachable.
 func (f *Fields) distanceToNearestFriendlyUnit(c Coords) int {
-	// TODO
-	return 0
+	player := *f.get(c)
+	var dist [S][S]int
+	var queue [S * S]Coords
+	qlen := 0
+	var markUnit func(c Coords)
+	markUnit = func(c Coords) {
+		dist[c[0]][c[1]] = -1
+		for dir := 0; dir < 4; dir++ {
+			d := c.stepTo(dir)
+			if d.inRange() && dist[d[0]][d[1]] == 0 {
+				switch *f.get(d) {
+				case player:
+					markUnit(d)
+				case 0:
+					queue[qlen] = d
+					qlen++
+					dist[d[0]][d[1]] = 1
+				}
+			}
+		}
+	}
+	markUnit(c)
+	for qpos := 0; qpos < qlen; qpos++ {
+		c = queue[qpos]
+		e := dist[c[0]][c[1]]
+		for dir := 0; dir < 4; dir++ {
+			d := c.stepTo(dir)
+			if d.inRange() && dist[d[0]][d[1]] == 0 {
+				switch *f.get(d) {
+				case player:
+					return e
+				case 0:
+					queue[qlen] = d
+					qlen++
+					dist[d[0]][d[1]] = e
+				}
+			}
+		}
+	}
+	return 0 // no reachable friendly unit
 }
 
 // Determines whether the given move reduces the distance to the nearest
@@ -179,12 +244,16 @@ func (f Fields) reducesDistanceToNearestFriendlyUnit(m Move) bool {
 }
 
 func (s *State) Valid(m Move) bool {
-	p := s.NextPlayer()
-	return m.inRange() &&
-		*s.Fields.get(m[0]) == p &&
-		*s.Fields.get(m[1]) == 0 &&
-		s.Fields.keepsUnitConnected(m) // &&
-	// s.Fields.reducesDistanceToNearestFriendlyUnit(m)
+	if m.inRange() && *s.Fields.get(m[0]) == s.NextPlayer() &&
+		*s.Fields.get(m[1]) == 0 {
+		switch s.Fields.keepsUnitConnected(m) {
+		case 1:
+			return s.Fields.reducesDistanceToNearestFriendlyUnit(m)
+		case 2:
+			return true
+		}
+	}
+	return false
 }
 
 func (s *State) Over() bool {

@@ -1,4 +1,4 @@
- - implement actual game rules!
- - implement transcript writing
+ - test game implementation using arbiter
+ - simplify game logic by combining keepsUnitConnected & distanceToNearestFriendlyUnit
  - implement frontend that interfaces with the server
    (so I can play against test players)
