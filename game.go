@@ -161,99 +161,70 @@ func (f *Fields) relabelConnected(c Coords, p int, q int) int {
 	return res
 }
 
-// Determines whether the given move keeps its unit connected.
-// Returns 0 if this move disconnects the unit.
-// Returns 1 if this move keeps the unit connected.
-// Returns 2 if this move connects this unit to another one.
-func (f Fields) keepsUnitConnected(move Move) int {
-	player := *f.get(move[0])
-	size := (&f).relabelConnected(move[0], player, 7)
-	if size == 1 && move[0].distanceTo(move[1]) > 1 {
-		return 0 // singleton must move to adjacent field
-	}
-	res := 1
-	for dir := 0; dir < 4; dir++ {
-		c := move[1].stepTo(dir)
-		if c.inRange() && *f.get(c) == player {
-			res = 2 // destination adjacent to friendly unit
-			break
-		}
-	}
-	f.swap(move[0], move[1])
-	if (&f).relabelConnected(move[1], 7, player) != size {
-		return 0 // unit was disconnected!
-	}
-	return res
-}
-
 // Calculates the distance to the nearest friendly unit from the unit
 // indicated by the given coordinates.  Returns 0 if no friendly units
 // are reachable.
-func (f *Fields) distanceToNearestFriendlyUnit(c Coords) int {
-	player := *f.get(c)
+func (f *Fields) distanceToNearestUnit(c Coords, player int) int {
 	var dist [S][S]int
 	var queue [S * S]Coords
 	qlen := 0
-	var markUnit func(c Coords)
-	markUnit = func(c Coords) {
+	var markUnit func(Coords, int)
+	markUnit = func(c Coords, player int) {
 		dist[c[0]][c[1]] = -1
 		for dir := 0; dir < 4; dir++ {
 			d := c.stepTo(dir)
 			if d.inRange() && dist[d[0]][d[1]] == 0 {
+				dist[d[0]][d[1]] = 1
 				switch *f.get(d) {
 				case player:
-					markUnit(d)
-				case 0:
+					markUnit(d, player)
+				default:
 					queue[qlen] = d
 					qlen++
-					dist[d[0]][d[1]] = 1
 				}
 			}
 		}
 	}
-	markUnit(c)
+	markUnit(c, *f.get(c))
 	for qpos := 0; qpos < qlen; qpos++ {
 		c = queue[qpos]
 		e := dist[c[0]][c[1]]
-		for dir := 0; dir < 4; dir++ {
-			d := c.stepTo(dir)
-			if d.inRange() && dist[d[0]][d[1]] == 0 {
-				switch *f.get(d) {
-				case player:
-					return e
-				case 0:
+		switch *f.get(c) {
+		case 0:
+			for dir := 0; dir < 4; dir++ {
+				d := c.stepTo(dir)
+				if d.inRange() && dist[d[0]][d[1]] == 0 {
 					queue[qlen] = d
 					qlen++
-					dist[d[0]][d[1]] = e
+					dist[d[0]][d[1]] = e + 1
 				}
 			}
+		case player:
+			return e
 		}
 	}
 	return 0 // no reachable friendly unit
 }
 
-// Determines whether the given move reduces the distance to the nearest
-// friendly unit.
-func (f Fields) reducesDistanceToNearestFriendlyUnit(m Move) bool {
-	d := f.distanceToNearestFriendlyUnit(m[0])
-	if d <= 0 {
-		return false
+func (f Fields) valid(move Move) bool {
+	player := *f.get(move[0])
+	dist := f.distanceToNearestUnit(move[0], player)
+	if dist == 0 {
+		return false // no reachable friendly unit
 	}
-	f.swap(m[0], m[1])
-	return f.distanceToNearestFriendlyUnit(m[1]) < d
+	const magic = 7 // unused value
+	size := (&f).relabelConnected(move[0], player, magic)
+	if size == 1 && move[0].distanceTo(move[1]) > 1 {
+		return false // singleton must move to adjacent field
+	}
+	f.swap(move[0], move[1])
+	return f.distanceToNearestUnit(move[1], player) < dist &&
+		(&f).relabelConnected(move[1], magic, player) == size
 }
 
 func (s *State) Valid(m Move) bool {
-	if m.inRange() && *s.Fields.get(m[0]) == s.NextPlayer() &&
-		*s.Fields.get(m[1]) == 0 {
-		switch s.Fields.keepsUnitConnected(m) {
-		case 1:
-			return s.Fields.reducesDistanceToNearestFriendlyUnit(m)
-		case 2:
-			return true
-		}
-	}
-	return false
+	return m.inRange() && *s.Fields.get(m[0]) == s.NextPlayer() &&
+		*s.Fields.get(m[1]) == 0 && s.Fields.valid(m)
 }
 
 func (s *State) Over() bool {
