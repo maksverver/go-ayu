@@ -69,7 +69,7 @@
 					alert("Poll request failed!\n" + req.responseText + "\nYou probably need to refresh the page.")
 					return
 				}
-				if (req.responseText != "") {
+				if (req.responseText) {
 					state = JSON.parse(req.responseText)
 					updateBoard()
 				}
