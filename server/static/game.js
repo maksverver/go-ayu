@@ -60,6 +60,8 @@
 	}
 
 	var pollState = function(game, version) {
+		var pollDelay = 10e3  // 10 seconds (in milliseconds)
+		var startTime = new Date().getTime()
 		var req = new XMLHttpRequest()
 		req.onreadystatechange = function(){
 			if (req.readyState == 4) {
@@ -67,10 +69,20 @@
 					alert("Poll request failed!\n" + req.responseText + "\nYou probably need to refresh the page.")
 					return
 				}
-				state = JSON.parse(req.responseText)
-				updateBoard()
-				// TODO: rate limit polling?
-				pollState(game, state.history.length + 1)
+				if (req.responseText != "") {
+					state = JSON.parse(req.responseText)
+					updateBoard()
+				}
+				var new_version = state.history.length + 1
+				var repoll = function() {
+					pollState(game, new_version)
+				}
+				var delay = new Date().getTime() - startTime
+				if (delay > pollDelay || new_version != version) {
+					repoll()
+				} else {
+					setTimeout(repoll, pollDelay - delay)
+				}
 			}
 		}
 		req.open('GET', 'poll?game=' + encodeURIComponent(game) + '&version=' + version, true)
