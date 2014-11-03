@@ -24,10 +24,14 @@ body {
 	background-image: url(black.png);
 }
 
-#board .cell.selected {
-	filter: invert(0.25);
-	-webkit-filter: invert(0.25);
+#board .cell.white.selected {
+	background-image: url(white-selected.png);
 }
+
+#board .cell.black.selected {
+	background-image: url(black-selected.png);
+}
+
 
 #board .label {
 	display: inline-block;

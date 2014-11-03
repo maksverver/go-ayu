@@ -1,4 +1,5 @@
- - fix CSS so it works in Firefox (don't use filter? maybe border?)
  - test game implementation using arbiter
  - implement frontend that interfaces with the server
    (so I can play against test players)
+ - maybe: implement DataStore for storing games?
+   (requires dramatically reworking dependencies!)
