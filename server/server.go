@@ -16,7 +16,7 @@ import "time"
 
 var host = flag.String("host", "localhost", "Hostname to bind HTTP server on")
 var port = flag.Int("port", 8027, "TCP port to bind HTTP server on")
-var pollDelay = flag.Int("pollDelay", 55, "Maximum time to block on poll requests (in seconds)")
+var poll_delay = flag.Int("poll_delay", 55, "Maximum time to block on poll requests (in seconds)")
 
 type game struct {
 	state   *ayu.State
@@ -61,7 +61,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 	// Wait for game to reach requested version.
 	version, _ := strconv.Atoi(r.FormValue("version"))
 	game.mutex.Lock()
-	timeout_ch := time.After(time.Duration(*pollDelay) * time.Second)
+	timeout_ch := time.After(time.Duration(*poll_delay) * time.Second)
 	update_ch := make(chan bool, 1)
 	timed_out := false
 	for game.version() < version && !timed_out {
@@ -185,6 +185,7 @@ func init() {
 }
 
 func main() {
+	// main() is executed locally, but not by Google AppEngine.
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	log.Printf("Binding to address %s.", addr)
 	log.Fatal(http.ListenAndServe(addr, nil))
