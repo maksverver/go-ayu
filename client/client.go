@@ -23,7 +23,7 @@ var game_id, black_key, white_key *string
 // Based on --player argument
 var player_cmd exec.Cmd
 var player_in io.WriteCloser
-var player_out io.ReadCloser
+var player_out, player_err io.ReadCloser
 
 func readStrings(input io.ReadCloser, delimiter byte, output chan<- string) {
 	reader := bufio.NewReader(input)
@@ -122,6 +122,8 @@ func runPlayerCommand(command string) error {
 			return errors.New("Could not open player input!")
 		} else if player_out, err = player_cmd.StdoutPipe(); err != nil {
 			return errors.New("Could not open player output!")
+		} else if player_err, err = player_cmd.StderrPipe(); err != nil {
+			return errors.New("Could not open player errors!")
 		} else if err := player_cmd.Start(); err != nil {
 			return errors.New("Could not start player!")
 		}
@@ -143,7 +145,7 @@ func main() {
 	if err := runPlayerCommand(*player_arg); err != nil {
 		fmt.Println("Could not execute player command! ", err)
 	}
-
+	go io.Copy(os.Stderr, player_err)
 	lines := make(chan string)
 	go readStrings(player_out, '\n', lines)
 
