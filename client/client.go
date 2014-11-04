@@ -16,8 +16,14 @@ import "strings"
 var url_arg = flag.String("url", "", "Game URL with exactly one player key")
 var player_arg = flag.String("player", "", "Command to run player program")
 
+// Parsed from --url argument
 var game_url url.URL
 var game_id, black_key, white_key *string
+
+// Based on --player argument
+var player_cmd exec.Cmd
+var player_in io.WriteCloser
+var player_out io.ReadCloser
 
 func readStrings(input io.ReadCloser, delimiter byte, output chan<- string) {
 	reader := bufio.NewReader(input)
@@ -69,20 +75,11 @@ func pollGame(version int) error {
 	}
 }
 
-func main() {
-	var player_cmd exec.Cmd
-	var player_in io.WriteCloser
-	var player_out io.ReadCloser
-
-	flag.Parse()
-
-	// Parse game URL
-	if the_url, err := url.Parse(*url_arg); err != nil {
-		fmt.Println("Could not parse game URL!")
-		return
+func parseGameUrl(url_str string) error {
+	if the_url, err := url.Parse(url_str); err != nil {
+		return errors.New("Could not parse game URL.")
 	} else if fragment_map, err := url.ParseQuery(the_url.Fragment); err != nil {
-		fmt.Println("Could not parse URL fragment!")
-		return
+		return errors.New("Could not parse URL fragment.")
 	} else {
 		num_keys := 0
 		num_games := 0
@@ -102,42 +99,49 @@ func main() {
 			}
 		}
 		if num_games != 1 {
-			fmt.Println("Need exactly one game id!")
-			return
+			return errors.New("Need exactly one game id.")
 		}
 		if num_keys != 1 {
-			fmt.Println("Need exactly one player key!")
-			return
+			return errors.New("Need exactly one player key.")
 		}
 		game_url = *the_url
+		return nil
+	}
+}
+
+func runPlayerCommand(command string) error {
+	if argv := strings.Fields(*player_arg); len(argv) == 0 {
+		return errors.New("No player command given!")
+	} else if name, err := exec.LookPath(argv[0]); err != nil {
+		return errors.New("Can't find player executable!")
+	} else if dir, err := os.Getwd(); err != nil {
+		return errors.New("Can't get current working directory!")
+	} else {
+		player_cmd = exec.Cmd{Path: name, Args: argv, Dir: dir}
+		if player_in, err = player_cmd.StdinPipe(); err != nil {
+			return errors.New("Could not open player input!")
+		} else if player_out, err = player_cmd.StdoutPipe(); err != nil {
+			return errors.New("Could not open player output!")
+		} else if err := player_cmd.Start(); err != nil {
+			return errors.New("Could not start player!")
+		}
+		return nil
+	}
+}
+
+func main() {
+	flag.Parse()
+
+	if err := parseGameUrl(*url_arg); err != nil {
+		fmt.Println("Could not parse game URL!", err)
+		return
 	}
 	if err := pollGame(0); err != nil {
 		fmt.Println("Could not poll initial game state!", err)
 		return
 	}
-
-	// Parse player command
-	if argv := strings.Fields(*player_arg); len(argv) == 0 {
-		fmt.Println("No player command given!")
-		return
-	} else if name, err := exec.LookPath(argv[0]); err != nil {
-		fmt.Println("Can't find player executable!")
-		return
-	} else if dir, err := os.Getwd(); err != nil {
-		fmt.Println("Can't get current working directory!")
-		return
-	} else {
-		player_cmd = exec.Cmd{Path: name, Args: argv, Dir: dir}
-		if player_in, err = player_cmd.StdinPipe(); err != nil {
-			fmt.Println("Could not open player input!")
-			return
-		} else if player_out, err = player_cmd.StdoutPipe(); err != nil {
-			fmt.Println("Could not open player output!")
-			return
-		} else if err := player_cmd.Start(); err != nil {
-			fmt.Println("Could not start player!")
-			return
-		}
+	if err := runPlayerCommand(*player_arg); err != nil {
+		fmt.Println("Could not execute player command! ", err)
 	}
 
 	lines := make(chan string)
