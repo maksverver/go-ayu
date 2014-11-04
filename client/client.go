@@ -1,5 +1,6 @@
 package main
 
+import "ayu"
 import "bufio"
 import "os/exec"
 import "errors"
@@ -7,6 +8,8 @@ import "flag"
 import "fmt"
 import "io"
 import "io/ioutil"
+import "log"
+import "encoding/json"
 import "net/http"
 import "net/url"
 import "os"
@@ -20,6 +23,9 @@ var player_arg = flag.String("player", "", "Command to run player program")
 var game_url url.URL
 var game_id, black_key, white_key *string
 
+// Fetched from server
+var game_state ayu.State
+
 // Based on --player argument
 var player_cmd exec.Cmd
 var player_in io.WriteCloser
@@ -28,18 +34,16 @@ var player_out, player_err io.ReadCloser
 func readStrings(input io.ReadCloser, delimiter byte, output chan<- string) {
 	reader := bufio.NewReader(input)
 	for {
-		if line, err := reader.ReadString(delimiter); err == io.EOF {
-			if line != "" {
-				output <- line
-			}
+		if line, err := reader.ReadString(delimiter); line != "" {
+			output <- line
+		} else if err == io.EOF {
 			break
 		} else if err != nil {
-			fmt.Println("Error reading from player!")
+			log.Fatal("Error reading from player!", err)
 			break
-		} else {
-			output <- line
 		}
 	}
+	fmt.Println("Exiting")
 	input.Close()
 }
 
@@ -51,7 +55,6 @@ func pollGame(version int) error {
 	params.Set("game", *game_id)
 	params.Set("version", fmt.Sprintf("%d", version))
 	poll_url.RawQuery = params.Encode()
-	fmt.Println(poll_url.String())
 	if response, err := http.Get(poll_url.String()); err != nil {
 		return err
 	} else {
@@ -60,8 +63,26 @@ func pollGame(version int) error {
 			if body, err := ioutil.ReadAll(response.Body); err != nil {
 				return err
 			} else {
-				fmt.Println(string(body))
-				// TODO: parse body, return it
+				var state struct {
+					NextPlayer int
+					Size       int
+					Fields     ayu.Fields
+					History    ayu.History
+				}
+				if err := json.Unmarshal(body, &state); err != nil {
+					return err
+				}
+				if state.Size != ayu.S {
+					return fmt.Errorf(
+						"Unexpected board size: %d (expected: %d)",
+						state.Size, ayu.S)
+				}
+				if len(state.History) != version {
+					return fmt.Errorf(
+						"Unexpected number of moves: %d (expected: %d)",
+						len(state.History), version)
+				}
+				game_state = ayu.State{state.Fields, state.History}
 				return nil
 			}
 		} else if response.StatusCode == 204 /* No Content */ {
@@ -138,26 +159,49 @@ func main() {
 		fmt.Println("Could not parse game URL!", err)
 		return
 	}
-	if err := pollGame(0); err != nil {
-		fmt.Println("Could not poll initial game state!", err)
-		return
-	}
 	if err := runPlayerCommand(*player_arg); err != nil {
 		fmt.Println("Could not execute player command! ", err)
+		return
 	}
+
+	// Initialize game state.
+	game_state.Create()
+
+	// Copy player's stderr to our stderr.
 	go io.Copy(os.Stderr, player_err)
+
+	// Read output lines into a channel of strings.
 	lines := make(chan string)
 	go readStrings(player_out, '\n', lines)
 
-	for line := range lines {
-		fmt.Println("Line:", line)
+	// Game loop.
+	for !game_state.Over() {
+		fmt.Println(game_state.Next())
+		if (game_state.Next() == 0) == (white_key != nil) {
+			// Player's turn
+			if len(game_state.History) == 0 {
+				player_in.Write([]byte("Start\n"))
+			}
+			move_str := strings.TrimSpace(<- lines)
+			if move, ok := ayu.ParseMove(move_str); !ok {
+				fmt.Println("Could not parse move:", move_str)
+				break
+			} else if !game_state.Execute(move) {
+				fmt.Println("Player made invalid move:", move_str)
+			} else {
+				// TODO: format move as json, send update request with key
+			}
+		} else {
+			// Opponent's turn
+			if err := pollGame(len(game_state.History) + 1); err != nil {
+				fmt.Println("Could not poll game state!", err)
+				break
+			}
+			last_move := game_state.History[len(game_state.History) - 1]
+			fmt.Println(last_move.String())
+			player_in.Write([]byte(last_move.String() + "\n"))
+		}
 	}
-
+	player_in.Write([]byte("Quit\n"))
 	player_cmd.Wait()
-
-	// TODO!
-	//  - one go routine to poll server
-	//  - one go routine to read commands, parse them, and tell the server
-	fmt.Println(game_url, white_key, black_key, player_in) // used
-	// TODO: print stderr from player too
 }

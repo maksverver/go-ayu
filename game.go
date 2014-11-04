@@ -13,10 +13,13 @@ var move_re = regexp.MustCompile("^([A-K]([1-9]|1[01]))-([A-K]([1-9]|1[01]))$")
 // Fields are represented as 0 (empty) or +1 (white piece) or -1 (black piece)
 type Fields [S][S]int
 
+// The game history is simply the sequence of moves played so far.
+type History []Move
+
 // Game state consists of the current board and the history of moves played.
 type State struct {
 	Fields  Fields
-	History []Move
+	History History
 }
 
 // Field coordinates locate a field on the board.
@@ -34,14 +37,9 @@ func (m Move) String() string {
 }
 
 func CreateState() *State {
-	var res State
-	for i := 0; i < S; i++ {
-		for j := 0; j < S; j++ {
-			res.Fields[i][j] = j%2 - i%2
-		}
-	}
-	res.History = make([]Move, 0)
-	return &res
+	var s State
+	s.Create()
+	return &s
 }
 
 func ParseCoords(s string) (c Coords, ok bool) {
@@ -66,6 +64,15 @@ func ParseMove(s string) (m Move, ok bool) {
 		ok = true
 	}
 	return
+}
+
+func (s *State) Create() {
+	for i := 0; i < S; i++ {
+		for j := 0; j < S; j++ {
+			s.Fields[i][j] = j%2 - i%2
+		}
+	}
+	s.History = make([]Move, 0)
 }
 
 // Note: Next() is called by the arbiter and return 0 (white) or 1 (black)
