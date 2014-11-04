@@ -78,14 +78,21 @@ func (s *State) NextPlayer() int {
 	return 1 - len(s.History)%2*2
 }
 
-func (s *State) generateMovesToChan(ch chan<- Move) {
+func (s *State) generateMovesToChan(ch chan<- Move, n int) {
 	var move Move
-	for move[0][0] = 0; move[0][0] < S; move[0][0]++ {
-		for move[0][1] = 0; move[0][1] < S; move[0][1]++ {
-			for move[1][0] = 0; move[1][0] < S; move[1][0]++ {
-				for move[1][1] = 0; move[1][1] < S; move[1][1]++ {
-					if s.Valid(move) {
-						ch <- move
+	if n > 0 {
+	loop:
+		for move[0][0] = 0; move[0][0] < S; move[0][0]++ {
+			for move[0][1] = 0; move[0][1] < S; move[0][1]++ {
+				for move[1][0] = 0; move[1][0] < S; move[1][0]++ {
+					for move[1][1] = 0; move[1][1] < S; move[1][1]++ {
+						if s.Valid(move) {
+							ch <- move
+							n--
+							if n == 0 {
+								break loop
+							}
+						}
 					}
 				}
 			}
@@ -94,10 +101,15 @@ func (s *State) generateMovesToChan(ch chan<- Move) {
 	close(ch)
 }
 
-func (s *State) generateMoves() <-chan Move {
+// Generates up to n moves.
+func (s *State) generateMaxMoves(n int) <-chan Move {
 	ch := make(chan Move)
-	go s.generateMovesToChan(ch)
+	go s.generateMovesToChan(ch, n)
 	return ch
+}
+
+func (s *State) generateAllMoves() <-chan Move {
+	return s.generateMaxMoves(S*S*S*S)
 }
 
 func (c Coords) inRange() bool {
@@ -229,12 +241,13 @@ func (s *State) Valid(m Move) bool {
 
 func (s *State) Over() bool {
 	// The games is over iff. the next player has no possible moves.
-	_, ok := <-s.generateMoves()
+	ch := s.generateMaxMoves(1)
+	_, ok := <-ch
 	return !ok
 }
 
 func (s *State) ListMoves() (moves []interface{}) {
-	for move := range s.generateMoves() {
+	for move := range s.generateAllMoves() {
 		moves = append(moves, move)
 	}
 	return
