@@ -27,6 +27,7 @@
 				}
 			}
 			req.open('POST', 'update', true)
+			req.setRequestHeader("Content-type", "application/json")
 			req.send(JSON.stringify({
 				'game': getParameter('game'),
 				'version': state.history.length,

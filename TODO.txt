@@ -1,5 +1,9 @@
- - test game implementation using arbiter
- - implement frontend that interfaces with the server
-   (so I can play against test players)
+client/client.go:
+ - rate limit polling
+
+server/game.js:
+ - indicate opponent's last move
+
+server/server.go:
  - maybe: implement DataStore for storing games?
    (requires dramatically reworking dependencies!)

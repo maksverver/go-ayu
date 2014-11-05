@@ -2,6 +2,7 @@ package main
 
 import "ayu"
 import "bufio"
+import "bytes"
 import "os/exec"
 import "errors"
 import "flag"
@@ -47,14 +48,19 @@ func readStrings(input io.ReadCloser, delimiter byte, output chan<- string) {
 	input.Close()
 }
 
+func relativePathToUrl(rel_path string) url.URL {
+	return url.URL{
+		game_url.Scheme, game_url.Opaque, game_url.User, game_url.Host,
+		path.Join(path.Dir(game_url.Path), rel_path), "", ""}
+}
+
 func pollGame(version int) error {
-	poll_url := game_url
-	poll_url.Path = path.Join(path.Dir(poll_url.Path), "poll")
-	poll_url.Fragment = ""
 	params := url.Values{}
 	params.Set("game", *game_id)
 	params.Set("version", fmt.Sprintf("%d", version))
+	poll_url := relativePathToUrl("poll")
 	poll_url.RawQuery = params.Encode()
+poll:
 	if response, err := http.Get(poll_url.String()); err != nil {
 		return err
 	} else {
@@ -86,8 +92,8 @@ func pollGame(version int) error {
 				return nil
 			}
 		} else if response.StatusCode == 204 /* No Content */ {
-			fmt.Println("TODO: poll again!")
-			return nil
+			// TODO: rate limit polling!
+			goto poll
 		} else {
 			return errors.New(fmt.Sprintf(
 				"Unexpected response status: %s",
@@ -152,9 +158,35 @@ func runPlayerCommand(command string) error {
 	}
 }
 
+func postLastMove() error {
+	key := ""
+	if white_key != nil {
+		key = *white_key
+	} else if black_key != nil {
+		key = *black_key
+	}
+	version := len(game_state.History) - 1
+	update := map[string]interface{}{
+		"game":    game_id,
+		"version": version,
+		"key":     key,
+		"move":    game_state.History[version],
+	}
+	update_url := relativePathToUrl("update")
+	if update_bytes, err := json.Marshal(update); err != nil {
+		return err
+	} else if response, err := http.Post(update_url.String(), "application/json",
+			bytes.NewReader(update_bytes)); err != nil {
+		return err
+	} else if response.StatusCode != 200 {
+		return fmt.Errorf("Unexpected response status: %d %s",
+			response.StatusCode, response.Status)
+	}
+	return nil
+}
+
 func main() {
 	flag.Parse()
-
 	if err := parseGameUrl(*url_arg); err != nil {
 		fmt.Println("Could not parse game URL!", err)
 		return
@@ -163,33 +195,28 @@ func main() {
 		fmt.Println("Could not execute player command! ", err)
 		return
 	}
-
-	// Initialize game state.
 	game_state.Create()
-
-	// Copy player's stderr to our stderr.
 	go io.Copy(os.Stderr, player_err)
-
-	// Read output lines into a channel of strings.
 	lines := make(chan string)
 	go readStrings(player_out, '\n', lines)
-
-	// Game loop.
 	for !game_state.Over() {
-		fmt.Println(game_state.Next())
 		if (game_state.Next() == 0) == (white_key != nil) {
 			// Player's turn
 			if len(game_state.History) == 0 {
 				player_in.Write([]byte("Start\n"))
 			}
-			move_str := strings.TrimSpace(<- lines)
+			move_str := strings.TrimSpace(<-lines)
 			if move, ok := ayu.ParseMove(move_str); !ok {
 				fmt.Println("Could not parse move:", move_str)
 				break
 			} else if !game_state.Execute(move) {
 				fmt.Println("Player made invalid move:", move_str)
+				break
+			} else if err := postLastMove(); err != nil {
+				fmt.Printf("Failed to post move '%s': %s\n", move, err)
+				break
 			} else {
-				// TODO: format move as json, send update request with key
+				fmt.Println(">", move)
 			}
 		} else {
 			// Opponent's turn
@@ -197,11 +224,12 @@ func main() {
 				fmt.Println("Could not poll game state!", err)
 				break
 			}
-			last_move := game_state.History[len(game_state.History) - 1]
-			fmt.Println(last_move.String())
+			last_move := game_state.History[len(game_state.History)-1]
+			fmt.Println("<", last_move)
 			player_in.Write([]byte(last_move.String() + "\n"))
 		}
 	}
+	fmt.Println("Game over.")
 	player_in.Write([]byte("Quit\n"))
 	player_cmd.Wait()
 }
