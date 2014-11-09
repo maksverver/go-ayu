@@ -52,6 +52,13 @@
 		document.getElementById('yourTurn').style.display =
 			getPlayerKey(state.nextPlayer) ? '' : 'none'
 
+		BOARD_ELEM.clearHighlighted()
+		if (state.history.length > 0) {
+			var last_move = state.history[state.history.length - 1]
+			BOARD_ELEM.addHighlighted(last_move[0][0], last_move[0][1])
+			BOARD_ELEM.addHighlighted(last_move[1][0], last_move[1][1])
+		}
+
 		if (my_last_version === null) {
 			my_last_version = state.history.length
 		} else if (my_last_version != state.history.length &&

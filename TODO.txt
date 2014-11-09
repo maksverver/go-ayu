@@ -2,7 +2,9 @@ client/client.go:
  - rate limit polling
 
 server/game.js:
- - indicate opponent's last move
+ - show history
+ - allow viewing previous positions
+ - calculate and visualize valid moves
 
 server/server.go:
  - maybe: implement DataStore for storing games?

@@ -4,6 +4,7 @@ S = 11;
 
 (function() {
 	var selected = null
+	var highlighted = []
 	var cells = []
 	var listeners = []
 	BOARD_ELEM.addFieldClickListener = function(listener) {
@@ -29,7 +30,18 @@ S = 11;
 		selected = null
 	}
 	BOARD_ELEM.getSelected = function() {
-		return selected.slice()
+		return selected ? selected.slice() : null
+	}
+	BOARD_ELEM.clearHighlighted = function(fields) {
+		var cell
+		while ((cell = highlighted.pop())) {
+			cell.classList.remove('highlighted')
+		}
+	}
+	BOARD_ELEM.addHighlighted = function(row, col) {
+		var cell = cells[row][col]
+		cell.classList.add('highlighted')
+		highlighted.push(cell)
 	}
 
 	var onFieldClicked = function() {

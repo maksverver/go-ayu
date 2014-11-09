@@ -32,6 +32,17 @@ body {
 	background-image: url(black-selected.png);
 }
 
+#board .cell.highlighted {
+	background-image: url(empty-highlighted.png);
+}
+
+#board .cell.white.highlighted {
+	background-image: url(white-highlighted.png);
+}
+
+#board .cell.black.highlighted {
+	background-image: url(black-highlighted.png);
+}
 
 #board .label {
 	display: inline-block;
