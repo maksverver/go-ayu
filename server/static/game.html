@@ -5,7 +5,8 @@
  </head>
  <body style="text-align:center">
   <h1>Ayu</h1>
-  <div id="boardHolder"><div id="board"></div></div>
+  <div id="historyHolder"><h2>Move History</h2><table id="history"></table></div>
+  <div id="boardHolder"><div id="board"></div></div></div>
   <p id="nextPlayer">
     <span id="whiteToMove" style="display:none">White to move.</span>
     <span id="blackToMove" style="display:none">Black to move.</span>
@@ -15,6 +16,7 @@
   <audio id="turnNotification"><source src="ding.mp3" type="audio/mp3"></audio>
   <script src="parameters.js"></script>
   <script src="board.js"></script>
+  <script src="history.js"></script>
   <script src="game.js"></script>
  </body>
 </html>

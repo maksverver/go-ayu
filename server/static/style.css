@@ -53,3 +53,40 @@ body {
 	font: 24px sans-serif;
 	color: lightGray;
 }
+
+#historyHolder {
+	vertical-align: top;
+	position: absolute;
+	top: 0;
+	right: 0;
+	height: 100%;
+	overflow: scroll;
+}
+
+#historyHolder h2 {
+	margin: 0;
+	padding: 0 0.5em 0 0.5em;
+}
+
+#history {
+	padding: 1em;
+	text-align: left;
+}
+
+table#history td.label {
+	text-align: right;
+	color: darkGrey;
+}
+
+table#history td.move {
+	text-align: center;
+	cursor: pointer;
+}
+
+table#history td.move.selected {
+	background: #00ffff;
+}
+
+table#history td.move.future {
+	color: darkGrey;
+}

@@ -2,8 +2,6 @@ client/client.go:
  - rate limit polling
 
 server/game.js:
- - show history
- - allow viewing previous positions
  - calculate and visualize valid moves
 
 server/server.go:

@@ -6,14 +6,17 @@ S = 11;
 	var selected = null
 	var highlighted = []
 	var cells = []
-	var listeners = []
-	BOARD_ELEM.addFieldClickListener = function(listener) {
-		listeners.push(listener)
-	}
 	BOARD_ELEM.updateField = function(row, col, player) {
 		var elem = cells[row][col]
 		elem.classList[player == +1 ? 'add' : 'remove']('white')
 		elem.classList[player == -1 ? 'add' : 'remove']('black')
+	}
+	BOARD_ELEM.setFields = function(fields) {
+		for (var i = 0; i < fields.length; ++i) {
+			for (var j = 0; j < fields[i].length; ++j) {
+				BOARD_ELEM.updateField(i, j, fields[i][j])
+			}
+		}
 	}
 	BOARD_ELEM.setSelected = function(row, col) {
 		BOARD_ELEM.clearSelected()
@@ -44,13 +47,6 @@ S = 11;
 		highlighted.push(cell)
 	}
 
-	var onFieldClicked = function() {
-		var parts = this.id.split('_')
-		var row = parseInt(parts[1])
-		var col = parseInt(parts[2])
-		for (var i in listeners) listeners[i](row, col)
-	}
-
 	var addLabel = function(text) {
 		var label = document.createElement('div')
 		row.appendChild(label)
@@ -68,7 +64,15 @@ S = 11;
 			var cell = row.appendChild(document.createElement('div'))
 			cell.className = 'cell'
 			cell.id = 'cell_' + r + '_' + c
-			cell.onclick = onFieldClicked
+			cell.addEventListener('click', function(event) {
+				event.stopPropagation()
+				var parts = this.id.split('_')
+				event = document.createEvent("CustomEvent")
+				event.initCustomEvent('field-click', true, true, {
+					'row': parseInt(parts[1]),
+					'col': parseInt(parts[2]) })
+				BOARD_ELEM.dispatchEvent(event)
+			})
 			cells[r].push(cell)
 		}
 	}
