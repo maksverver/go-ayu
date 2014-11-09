@@ -10,6 +10,7 @@ import "encoding/hex"
 import "io/ioutil"
 import "log"
 import "net/http"
+import "os"
 import "strconv"
 import "sync"
 import "time"
@@ -17,6 +18,7 @@ import "time"
 var host = flag.String("host", "localhost", "Hostname to bind HTTP server on")
 var port = flag.Int("port", 8027, "TCP port to bind HTTP server on")
 var poll_delay = flag.Int("poll_delay", 55, "Maximum time to block on poll requests (in seconds)")
+var static_data_dir = flag.String("static_data_dir", "static", "Directory containing static files to serve")
 
 type game struct {
 	state   *ayu.State
@@ -36,7 +38,7 @@ var games_mutex sync.Mutex // must be held while accessing games
 
 func writeJsonResponse(w http.ResponseWriter, obj interface{}) {
 	if text, err := json.Marshal(obj); err != nil {
-		log.Panic(err)
+		log.Fatalln(err)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(text)
@@ -96,7 +98,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 func createRandomKey() string {
 	var buf [10]byte
 	if _, err := rand.Read(buf[:]); err != nil {
-		log.Panic(err)
+		log.Fatalln(err)
 	}
 	return hex.EncodeToString(buf[:])
 }
@@ -178,15 +180,23 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 func init() {
 	flag.Parse()
+	if len(flag.Args()) > 0 {
+		log.Fatalln("Extra command line arguments", flag.Args())
+	}
+	if info, err := os.Stat(*static_data_dir); err != nil {
+		log.Fatalln(err)
+	} else if !info.IsDir() {
+		log.Fatalln(*static_data_dir, "is not a directory")
+	}
 	http.HandleFunc("/poll", handlePoll)
 	http.HandleFunc("/create", handleCreate)
 	http.HandleFunc("/update", handleUpdate)
-	http.Handle("/", http.FileServer(http.Dir("static")))
+	http.Handle("/", http.FileServer(http.Dir(*static_data_dir)))
 }
 
 func main() {
 	// main() is executed locally, but not by Google AppEngine.
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	log.Printf("Binding to address %s.", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	log.Fatalln(http.ListenAndServe(addr, nil))
 }
