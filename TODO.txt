@@ -1,9 +1,11 @@
 client/client.go:
  - rate limit polling
 
-server/game.js:
+server/static/game.js:
  - calculate and visualize valid moves
+   (do I already get them from the server?)
+ - clock should get times from the server
 
 server/server.go:
- - maybe: implement DataStore for storing games?
-   (requires dramatically reworking dependencies!)
+ - implement DataStore for storing games
+   (use Redis on Heroku)

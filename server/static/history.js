@@ -12,9 +12,10 @@ HISTORY_ELEM = document.getElementById('history');
 	}
 
 	HISTORY_ELEM.reset = function(moves) {
-		while (HISTORY_ELEM.lastChild) {
-			HISTORY_ELEM.removeChild(HISTORY_ELEM.lastChild)
+		for (var i = 0; i < move_elems.length; i += 2) {
+			HISTORY_ELEM.removeChild(move_elems[i].parentNode)
 		}
+		var delim = HISTORY_ELEM.firstChild
 		move_elems = []
 		selected = -1
 		for (var i = 0; i < moves.length; ++i) {
@@ -23,10 +24,11 @@ HISTORY_ELEM = document.getElementById('history');
 				td.className = 'label'
 				td.appendChild(document.createTextNode((i/2 + 1) + '.'))
 				var tr = document.createElement('tr')
+				tr.className = 'move'
 				tr.appendChild(td)
-				HISTORY_ELEM.appendChild(tr)
+				HISTORY_ELEM.insertBefore(tr, delim)
 			} else {
-				var tr = HISTORY_ELEM.lastChild
+				var tr = delim.previousSibling
 			}
 			var td = document.createElement('td')
 			td.className = 'move'

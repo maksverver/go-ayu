@@ -90,3 +90,8 @@ table#history td.move.selected {
 table#history td.move.future {
 	color: darkGrey;
 }
+
+table#history tr.clock td {
+	text-align: center;
+	color: darkGrey;
+}

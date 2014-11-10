@@ -66,7 +66,7 @@
 		}
 	}
 
-	var updateBoard = function() {
+	var update = function() {  // called whenever the game state changes
 		BOARD_ELEM.clearSelected()
 		BOARD_ELEM.setFields(state.fields)
 		document.getElementById('whiteToMove').style.display =
@@ -85,6 +85,8 @@
 			document.getElementById('playSound').checked) {
 			document.getElementById('turnNotification').play()
 		}
+
+		CLOCK.setPlayer(state.nextPlayer)
 	}
 
 	var pollState = function(game, version) {
@@ -99,7 +101,7 @@
 				}
 				if (req.responseText) {
 					state = JSON.parse(req.responseText)
-					updateBoard()
+					update()
 				}
 				var new_version = state.history.length + 1
 				var repoll = function() {
