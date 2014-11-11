@@ -2,9 +2,9 @@ CLOCK = {};
 
 (function() {
 	var player = 0
-	var whiteMillis = 0
-	var blackMillis = 0
-	var curTimeMillis = new Date().getTime()
+	var white_millis = 0
+	var black_millis = 0
+	var cur_time_millis = new Date().getTime()
 
 	var updateTimeText = function(elem_id, millis) {
 		var seconds = parseInt(millis/1000)
@@ -17,13 +17,13 @@ CLOCK = {};
 	}
 
 	var updateTime = function() {
-		var newTimeMillis = new Date().getTime()
-		var millis = newTimeMillis - curTimeMillis
-		curTimeMillis = newTimeMillis
-		if (player == +1) whiteMillis += millis
-		if (player == -1) blackMillis += millis
-		updateTimeText('whiteTime', whiteMillis)
-		updateTimeText('blackTime', blackMillis)
+		var new_time_millis = new Date().getTime()
+		var millis = new_time_millis - cur_time_millis
+		cur_time_millis = new_time_millis
+		if (player == +1) white_millis += millis
+		if (player == -1) black_millis += millis
+		updateTimeText('whiteTime', white_millis)
+		updateTimeText('blackTime', black_millis)
 	}
 
 	setInterval(updateTime, 1000)
@@ -32,9 +32,9 @@ CLOCK = {};
 		updateTime()
 		player = p
 	}
-	CLOCK.setTimeUsed = function(whiteSeconds, blackSeconds) {
-		whiteMillis = parseInt(1000*whiteSeconds)
-		blackMillis = parseInt(1000*blackSeconds)
+	CLOCK.setTimeUsed = function(white_seconds, black_seconds) {
+		white_millis = parseInt(1000*white_seconds)
+		black_millis = parseInt(1000*black_seconds)
 		updateTime()
 	}
 })()
