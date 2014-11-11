@@ -28,11 +28,13 @@ CLOCK = {};
 
 	setInterval(updateTime, 1000)
 
-	CLOCK.getPlayer = function() {
-		return player
-	}
 	CLOCK.setPlayer = function(p) {
 		updateTime()
 		player = p
+	}
+	CLOCK.setTimeUsed = function(whiteSeconds, blackSeconds) {
+		whiteMillis = parseInt(1000*whiteSeconds)
+		blackMillis = parseInt(1000*blackSeconds)
+		updateTime()
 	}
 })()

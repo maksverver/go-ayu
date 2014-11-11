@@ -21,10 +21,12 @@ var poll_delay = flag.Int("poll_delay", 55, "Maximum time to block on poll reque
 var static_data_dir = flag.String("static_data_dir", "static", "Directory containing static files to serve")
 
 type game struct {
-	state   *ayu.State
-	keys    [2]string
-	waiting *list.List
-	mutex   sync.Mutex // must be held while accessing fields above
+	state    *ayu.State
+	timeUsed [2]time.Duration
+	lastTime time.Time
+	keys     [2]string
+	waiting  *list.List
+	mutex    sync.Mutex // must be held while accessing fields above
 }
 
 func (g *game) version() int { return len(g.state.History) }
@@ -85,12 +87,19 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 	if timed_out {
 		w.WriteHeader(204) // HTTP 204 "No Content"
 	} else {
+		time_used := [2]float64{
+			game.timeUsed[0].Seconds(),
+			game.timeUsed[1].Seconds()}
+		if !game.lastTime.IsZero() {
+			time_used[game.state.Next()] +=
+				time.Now().Sub(game.lastTime).Seconds()
+		}
 		writeJsonResponse(w, map[string]interface{}{
 			"nextPlayer": game.state.NextPlayer(),
 			"size":       ayu.S,
 			"fields":     game.state.Fields,
 			"history":    game.state.History,
-		})
+			"timeUsed":   time_used})
 	}
 	game.mutex.Unlock()
 }
@@ -118,6 +127,7 @@ func handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	games[id] = &game{ayu.CreateState(),
+		[2]time.Duration{0, 0}, time.Time{},
 		[2]string{createRandomKey(), createRandomKey()},
 		list.New(), sync.Mutex{}}
 	writeJsonResponse(w, map[string]interface{}{
@@ -159,7 +169,8 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Wrong Version", 409)
 		return
 	}
-	if update.Key != game.keys[game.state.Next()] {
+	player := game.state.Next()
+	if update.Key != game.keys[player] {
 		http.Error(w, "Forbidden", 403)
 		return
 	}
@@ -167,6 +178,13 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Illegal move", 403)
 		return
 	}
+
+	// Update time used by last player.
+	now := time.Now()
+	if !game.lastTime.IsZero() {
+		game.timeUsed[player] += now.Sub(game.lastTime)
+	}
+	game.lastTime = now
 
 	// Notify goroutines waiting for updates.
 	for {

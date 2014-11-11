@@ -87,6 +87,9 @@
 		}
 
 		CLOCK.setPlayer(state.nextPlayer)
+		if (state.timeUsed) {
+			CLOCK.setTimeUsed(state.timeUsed[0], state.timeUsed[1])
+		}
 	}
 
 	var pollState = function(game, version) {

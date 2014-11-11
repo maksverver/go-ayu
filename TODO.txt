@@ -2,9 +2,9 @@ client/client.go:
  - rate limit polling
 
 server/static/game.js:
+ - maybe: support multiple board sizes? (requires lots of server changes too!)
  - calculate and visualize valid moves
    (do I already get them from the server?)
- - clock should get times from the server
 
 server/server.go:
  - implement DataStore for storing games
