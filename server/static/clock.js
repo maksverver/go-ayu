@@ -1,6 +1,7 @@
 CLOCK = {};
 
 (function() {
+	'use strict'
 	var player = 0
 	var white_millis = 0
 	var black_millis = 0

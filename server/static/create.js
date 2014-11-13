@@ -1,4 +1,5 @@
 (function(){
+	'use strict'
 	var req = new XMLHttpRequest()
 	req.onreadystatechange = function(){
 		if (req.readyState == 4) {

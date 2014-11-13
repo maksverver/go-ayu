@@ -1,7 +1,8 @@
 (function(){
+	'use strict'
 	var parameters = null
 	
-	parseParameters = function() {
+	window.parseParameters = function() {
 		parameters = {}
 		var parts = window.location.hash.replace(/^#/,'').split('&')
 		for (var i = 0; i < parts.length; ++i) {
@@ -24,13 +25,13 @@
 		window.location.hash = s
 	}
 	
-	getParameter = function(key, def) {
+	window.getParameter = function(key, def) {
 		if (parameters === null) parseParameters()
 		var res = parameters[key]
 		return (res === undefined) ? def : res
 	}
 	
-	setParameter = function(key, val) {
+	window.setParameter = function(key, val) {
 		if (parameters === null) parseParameters()
 		if (val === undefined) {
 			delete parameters[key]

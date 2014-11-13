@@ -1,6 +1,7 @@
 HISTORY_ELEM = document.getElementById('history');
 
 (function() {
+	'use strict'
 	var move_elems = []
 	var selected = -1
 

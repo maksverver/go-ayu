@@ -3,6 +3,7 @@ BOARD_ELEM = document.getElementById('board')
 S = 11;
 
 (function() {
+	'use strict'
 	var selected = null
 	var highlighted = []
 	var cells = []

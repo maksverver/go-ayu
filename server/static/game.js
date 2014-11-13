@@ -1,4 +1,5 @@
 (function(){
+	'use strict'
 	var state = null
 	var my_last_version = null
 
