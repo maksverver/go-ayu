@@ -14,17 +14,31 @@ import "sync"
 import "time"
 
 var poll_delay time.Duration
+var database SaveLoader
+
+type Saver interface {
+	Save(kind, key, value string) error
+}
+
+type Loader interface {
+	Load(kind, key string) (string, error)
+}
+
+type SaveLoader interface {
+	Saver
+	Loader
+}
 
 type game struct {
-	state    *ayu.State
-	timeUsed [2]time.Duration
-	lastTime time.Time
-	keys     [2]string
+	State    *ayu.State
+	TimeUsed [2]time.Duration
+	LastTime time.Time
+	Keys     [2]string
 	waiting  *list.List
 	mutex    sync.Mutex // must be held while accessing fields above
 }
 
-func (g *game) version() int { return len(g.state.History) }
+func (g *game) version() int { return len(g.State.History) }
 
 type Client struct {
 	output chan<- string
@@ -32,6 +46,33 @@ type Client struct {
 
 var games = make(map[string]*game)
 var games_mutex sync.Mutex // must be held while accessing games
+
+func getGame(id string) (res *game) {
+	games_mutex.Lock()
+	res = games[id]
+	games_mutex.Unlock()
+	if res == nil && database != nil {
+		// Game not in memory. Try to read it from database instead.
+		if encoded, err := database.Load("Game", id); err == nil {
+			var game game
+			if err := json.Unmarshal([]byte(encoded), &game); err != nil {
+				log.Println("Could not unmarshal game", encoded, err)
+			} else {
+				game.waiting = list.New()
+				res = &game
+				games_mutex.Lock()
+				if games[id] != nil {
+					// Some other thread already loaded the game. Use it instead.
+					res = games[id]
+				} else {
+					games[id] = res
+				}
+				games_mutex.Unlock()
+			}
+		}
+	}
+	return
+}
 
 func writeJsonResponse(w http.ResponseWriter, obj interface{}) {
 	if text, err := json.Marshal(obj); err != nil {
@@ -49,9 +90,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Print("GET /poll")
 
-	games_mutex.Lock()
-	game := games[r.FormValue("game")]
-	games_mutex.Unlock()
+	game := getGame(r.FormValue("game"))
 	if game == nil {
 		http.Error(w, "Not Found", 404)
 		return
@@ -83,17 +122,17 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(204) // HTTP 204 "No Content"
 	} else {
 		time_used := [2]float64{
-			game.timeUsed[0].Seconds(),
-			game.timeUsed[1].Seconds()}
-		if !game.lastTime.IsZero() {
-			time_used[game.state.Next()] +=
-				time.Now().Sub(game.lastTime).Seconds()
+			game.TimeUsed[0].Seconds(),
+			game.TimeUsed[1].Seconds()}
+		if !game.LastTime.IsZero() {
+			time_used[game.State.Next()] +=
+				time.Now().Sub(game.LastTime).Seconds()
 		}
 		writeJsonResponse(w, map[string]interface{}{
-			"nextPlayer": game.state.NextPlayer(),
+			"nextPlayer": game.State.NextPlayer(),
 			"size":       ayu.S,
-			"fields":     game.state.Fields,
-			"history":    game.state.History,
+			"fields":     game.State.Fields,
+			"history":    game.State.History,
 			"timeUsed":   time_used})
 	}
 	game.mutex.Unlock()
@@ -127,7 +166,7 @@ func handleCreate(w http.ResponseWriter, r *http.Request) {
 		list.New(), sync.Mutex{}}
 	writeJsonResponse(w, map[string]interface{}{
 		"game": id,
-		"keys": games[id].keys,
+		"keys": games[id].Keys,
 	})
 }
 
@@ -151,9 +190,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request\n"+err.Error(), 400)
 		return
 	}
-	games_mutex.Lock()
-	game := games[update.Game]
-	games_mutex.Unlock()
+	game := getGame(update.Game)
 	if game == nil {
 		http.Error(w, "Not Found", 404)
 		return
@@ -164,22 +201,30 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Wrong Version", 409)
 		return
 	}
-	player := game.state.Next()
-	if update.Key != game.keys[player] {
+	player := game.State.Next()
+	if update.Key != game.Keys[player] {
 		http.Error(w, "Forbidden", 403)
 		return
 	}
-	if !game.state.Execute(update.Move) {
+	if !game.State.Execute(update.Move) {
 		http.Error(w, "Illegal move", 403)
 		return
 	}
 
 	// Update time used by last player.
 	now := time.Now()
-	if !game.lastTime.IsZero() {
-		game.timeUsed[player] += now.Sub(game.lastTime)
+	if !game.LastTime.IsZero() {
+		game.TimeUsed[player] += now.Sub(game.LastTime)
 	}
-	game.lastTime = now
+	game.LastTime = now
+
+	if database != nil {
+		if encoded, err := json.Marshal(game); err != nil {
+			log.Fatalln(err)
+		} else if err := database.Save("Game", update.Game, string(encoded)); err != nil {
+			log.Println("Could not save game.", err)
+		}
+	}
 
 	// Notify goroutines waiting for updates.
 	for {
@@ -191,7 +236,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Setup(static_data_dir string, poll_delay_seconds int) {
+func Setup(static_data_dir string, poll_delay_seconds int, db SaveLoader) {
 	http.HandleFunc("/poll", handlePoll)
 	http.HandleFunc("/create", handleCreate)
 	http.HandleFunc("/update", handleUpdate)
@@ -204,4 +249,5 @@ func Setup(static_data_dir string, poll_delay_seconds int) {
 		http.Handle("/", http.FileServer(http.Dir(static_data_dir)))
 	}
 	poll_delay = time.Duration(poll_delay_seconds) * time.Second
+	database = db
 }

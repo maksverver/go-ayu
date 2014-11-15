@@ -11,6 +11,8 @@ var port = flag.Int("port", 8027, "TCP port to bind HTTP server on")
 var static_data_dir = flag.String("static_data_dir", "static", "Directory containing static files to serve")
 var poll_delay = flag.Int("poll_delay", 55, "Maximum time to block on poll requests (in seconds)")
 
+// TODO: local (disk-based) "database" implementation.
+
 func main() {
 	flag.Parse()
         if len(flag.Args()) > 0 {
