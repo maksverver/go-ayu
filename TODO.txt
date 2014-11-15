@@ -9,3 +9,4 @@ server/static/game.js:
 server/server.go:
  - implement DataStore for storing games
    (use Redis on Heroku)
+ - either fix Heroku support or remove related files

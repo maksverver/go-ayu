@@ -1,10 +1,8 @@
-package main
+package server
 
 import "ayu"
 import "container/list"
 import "crypto/rand"
-import "flag"
-import "fmt"
 import "encoding/json"
 import "encoding/hex"
 import "io/ioutil"
@@ -15,10 +13,7 @@ import "strconv"
 import "sync"
 import "time"
 
-var host = flag.String("host", "localhost", "Hostname to bind HTTP server on")
-var port = flag.Int("port", 8027, "TCP port to bind HTTP server on")
-var poll_delay = flag.Int("poll_delay", 55, "Maximum time to block on poll requests (in seconds)")
-var static_data_dir = flag.String("static_data_dir", "static", "Directory containing static files to serve")
+var poll_delay time.Duration
 
 type game struct {
 	state    *ayu.State
@@ -65,7 +60,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 	// Wait for game to reach requested version.
 	version, _ := strconv.Atoi(r.FormValue("version"))
 	game.mutex.Lock()
-	timeout_ch := time.After(time.Duration(*poll_delay) * time.Second)
+	timeout_ch := time.After(poll_delay)
 	update_ch := make(chan bool, 1)
 	timed_out := false
 	for game.version() < version && !timed_out {
@@ -196,25 +191,17 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func init() {
-	flag.Parse()
-	if len(flag.Args()) > 0 {
-		log.Fatalln("Extra command line arguments", flag.Args())
-	}
-	if info, err := os.Stat(*static_data_dir); err != nil {
-		log.Fatalln(err)
-	} else if !info.IsDir() {
-		log.Fatalln(*static_data_dir, "is not a directory")
-	}
+func Setup(static_data_dir string, poll_delay_seconds int) {
 	http.HandleFunc("/poll", handlePoll)
 	http.HandleFunc("/create", handleCreate)
 	http.HandleFunc("/update", handleUpdate)
-	http.Handle("/", http.FileServer(http.Dir(*static_data_dir)))
-}
-
-func main() {
-	// main() is executed locally, but not by Google AppEngine.
-	addr := fmt.Sprintf("%s:%d", *host, *port)
-	log.Printf("Binding to address %s.", addr)
-	log.Fatalln(http.ListenAndServe(addr, nil))
+	if static_data_dir != "" {
+		if info, err := os.Stat(static_data_dir); err != nil {
+			log.Fatalln(err)
+		} else if !info.IsDir() {
+			log.Fatalln(static_data_dir, "is not a directory")
+		}
+		http.Handle("/", http.FileServer(http.Dir(static_data_dir)))
+	}
+	poll_delay = time.Duration(poll_delay_seconds) * time.Second
 }
