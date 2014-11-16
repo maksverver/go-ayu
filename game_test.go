@@ -4,64 +4,74 @@ import "bytes"
 import "strings"
 import "testing"
 
-func testParseCoords(t *testing.T, input string, expect_c Coords, expect_ok bool) {
-	c, ok := ParseCoords(input)
-	if c != expect_c || ok != expect_ok {
-		t.Error(input, expect_c, c, expect_ok, ok)
-	}
-}
 
 var goodCoords = map[string]Coords{
-	"A1":  Coords{10, 0},
-	"K11": Coords{0, 10},
-	"A11": Coords{0, 0},
-	"K1":  Coords{10, 10},
-	"E2":  Coords{9, 4}}
+	"A1":  Coords{0, 0},
+	"K11": Coords{10, 10},
+	"A11": Coords{10, 0},
+	"K1":  Coords{0, 10},
+	"E2":  Coords{1, 4},
+	"A12": Coords{11, 0},
+	"L1":  Coords{0, 11}}
 
 var badCoords = []string{
-	"A0", "A12", "@1", "L1", "A1\n", "e2", "", "xyzzy"}
+	"A0", "@1", "A1\n", "e2", "", "xyzzy"}
 
 func TestParseCoords(t *testing.T) {
+	test := func(input string, expect_c Coords, expect_ok bool) {
+		c, ok := ParseCoords(input)
+		if c != expect_c || ok != expect_ok {
+			t.Error(input, expect_c, c, expect_ok, ok)
+		}
+	}
 	for input, c := range goodCoords {
-		testParseCoords(t, input, c, true)
+		test(input, c, true)
 	}
 	for _, input := range badCoords {
-		testParseCoords(t, input, Coords{}, false)
-	}
-}
-
-func testParseMove(t *testing.T, input string, expect_m Move, expect_ok bool) {
-	m, ok := ParseMove(input)
-	if m != expect_m || ok != expect_ok {
-		t.Error(input, expect_m, m, expect_ok, ok)
+		test(input, Coords{}, false)
 	}
 }
 
 func TestParseMove(t *testing.T) {
+	test := func(input string, expect_m Move, expect_ok bool) {
+		m, ok := ParseMove(input)
+		if m != expect_m || ok != expect_ok {
+			t.Error(input, expect_m, m, expect_ok, ok)
+		}
+	}
 	for i, src := range goodCoords {
 		for j, dst := range goodCoords {
-			testParseMove(t, i+"-"+j, Move{src, dst}, true)
+			test(i+"-"+j, Move{src, dst}, true)
 		}
 	}
 	for i, _ := range goodCoords {
 		for _, j := range badCoords {
-			testParseMove(t, i+"-"+j, Move{}, false)
-			testParseMove(t, j+"-"+i, Move{}, false)
+			test(i+"-"+j, Move{}, false)
+			test(j+"-"+i, Move{}, false)
 		}
 	}
 	for _, i := range badCoords {
 		for _, j := range badCoords {
-			testParseMove(t, i+"-"+j, Move{}, false)
+			test(i+"-"+j, Move{}, false)
 		}
 	}
-	testParseMove(t, "A7-C3", Move{Coords{4, 0}, Coords{8, 2}}, true)
-	testParseMove(t, "A7C3", Move{}, false)
-	testParseMove(t, "A7,C3", Move{}, false)
-	testParseMove(t, "A7~C3", Move{}, false)
+	test("A7-C3", Move{Coords{6, 0}, Coords{2, 2}}, true)
+	test("A7C3", Move{}, false)
+	test("A7,C3", Move{}, false)
+	test("A7~C3", Move{}, false)
+}
+
+func TestCreateStateSmall(t *testing.T) {
+	state := CreateState(3)
+	var b bytes.Buffer
+	(&state.Fields).WriteBoard(&b)
+	if string(b.Bytes()) != ".+.\n-.-\n.+.\n" {
+		t.Error(string(b.Bytes()))
+	}
 }
 
 func TestCreateState(t *testing.T) {
-	state := CreateState()
+	state := CreateState(DefaultSize)
 	var b bytes.Buffer
 	(&state.Fields).WriteBoard(&b)
 	if string(b.Bytes()) != `.+.+.+.+.+.
@@ -81,7 +91,7 @@ func TestCreateState(t *testing.T) {
 }
 
 func testWriteLog(t *testing.T, moves string, expected string) {
-	state := CreateState()
+	state := CreateState(DefaultSize)
 	for _,part := range(strings.Fields(moves)) {
 		if move, ok := ParseMove(part); !ok {
 			t.Error("Could not parse move:", part)

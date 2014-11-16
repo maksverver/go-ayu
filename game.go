@@ -2,16 +2,17 @@ package ayu
 
 import "fmt"
 import "io"
+import "math"
 import "regexp"
 import "strconv"
 
-const S = 11 // board size
+const DefaultSize = 11
 
-var coords_re = regexp.MustCompile("^([A-K])([1-9]|1[01])$")
-var move_re = regexp.MustCompile("^([A-K]([1-9]|1[01]))-([A-K]([1-9]|1[01]))$")
+var coords_re = regexp.MustCompile("^([A-Z])([1-9][0-9]?)$")
+var move_re = regexp.MustCompile("^([A-Z][1-9][0-9]?)-([A-Z][1-9][0-9]?)$")
 
 // Fields are represented as 0 (empty) or +1 (white piece) or -1 (black piece)
-type Fields [S][S]int
+type Fields [][]int
 
 // The game history is simply the sequence of moves played so far.
 type History []Move
@@ -29,16 +30,16 @@ type Coords [2]int // [row, column]
 type Move [2]Coords // [source, destination]
 
 func (coords Coords) String() string {
-	return fmt.Sprintf("%c%d", 65+coords[1], S-coords[0])
+	return fmt.Sprintf("%c%d", 65+coords[1], 1+coords[0])
 }
 
 func (m Move) String() string {
 	return fmt.Sprintf("%s-%s", m[0].String(), m[1].String())
 }
 
-func CreateState() *State {
+func CreateState(size int) *State {
 	var s State
-	s.Create()
+	s.Create(size)
 	return &s
 }
 
@@ -46,9 +47,9 @@ func ParseCoords(s string) (c Coords, ok bool) {
 	if matches := coords_re.FindStringSubmatch(s); matches != nil {
 		// No need to check for parse errors.  Coords regexp only
 		// accepts correctly formatted coordinates.
-		x, _ := strconv.ParseInt(matches[1], 36, 0) // x in [10..20]
-		y, _ := strconv.ParseInt(matches[2], 10, 0) // y in [1..11]
-		c[0] = S - int(y)
+		x, _ := strconv.ParseInt(matches[1], 36, 0)
+		y, _ := strconv.ParseInt(matches[2], 10, 0)
+		c[0] = int(y) - 1
 		c[1] = int(x) - 10
 		ok = true
 	}
@@ -60,15 +61,24 @@ func ParseMove(s string) (m Move, ok bool) {
 		// No need to check result of ParseCoords.  Move regexp only
 		// accepts correctly formatted coordinates.
 		m[0], _ = ParseCoords(matches[1])
-		m[1], _ = ParseCoords(matches[3])
+		m[1], _ = ParseCoords(matches[2])
 		ok = true
 	}
 	return
 }
 
-func (s *State) Create() {
-	for i := 0; i < S; i++ {
-		for j := 0; j < S; j++ {
+func IsValidSize(size int) bool {
+	return (size%2 == 1 && 3 <= size && size <= 19)
+}
+
+func (s *State) Create(size int) {
+	if !IsValidSize(size) {
+		panic(fmt.Sprintf("Invalid size: %d", size))
+	}
+	s.Fields = make([][]int, size)
+	for i := 0; i < size; i++ {
+		s.Fields[i] = make([]int, size)
+		for j := 0; j < size; j++ {
 			s.Fields[i][j] = j%2 - i%2
 		}
 	}
@@ -86,24 +96,22 @@ func (s *State) NextPlayer() int {
 }
 
 func (s *State) generateMovesToChan(ch chan<- Move, n int) {
-	var move Move
-	if n > 0 {
-	loop:
-		for move[0][0] = 0; move[0][0] < S; move[0][0]++ {
-			for move[0][1] = 0; move[0][1] < S; move[0][1]++ {
-				for move[1][0] = 0; move[1][0] < S; move[1][0]++ {
-					for move[1][1] = 0; move[1][1] < S; move[1][1]++ {
+loop:
+	for ; n > 0; n-- {
+		for r1 := range s.Fields {
+			for c1 := range s.Fields[r1] {
+				for r2 := range s.Fields {
+					for c2 := range s.Fields[r2] {
+						move := Move{{r1, c1}, {r2, c2}}
 						if s.Valid(move) {
 							ch <- move
-							n--
-							if n == 0 {
-								break loop
-							}
+							continue loop
 						}
 					}
 				}
 			}
 		}
+		break
 	}
 	close(ch)
 }
@@ -116,11 +124,11 @@ func (s *State) generateMaxMoves(n int) <-chan Move {
 }
 
 func (s *State) generateAllMoves() <-chan Move {
-	return s.generateMaxMoves(S*S*S*S)
+	return s.generateMaxMoves(math.MaxInt32)
 }
 
-func (c Coords) inRange() bool {
-	return 0 <= c[0] && c[0] < S && 0 <= c[1] && c[1] < S
+func (c Coords) inRange(f Fields) bool {
+	return 0 <= c[0] && c[0] < len(f) && 0 <= c[1] && c[1] < len(f[c[0]])
 }
 
 func abs(i int) int {
@@ -148,15 +156,15 @@ func (c Coords) stepTo(dir int) Coords {
 	panic(fmt.Sprintf("invalid direction: %d", dir))
 }
 
-func (m Move) inRange() bool {
-	return m[0].inRange() && m[1].inRange()
+func (m Move) inRange(f Fields) bool {
+	return m[0].inRange(f) && m[1].inRange(f)
 }
 
-func (f *Fields) get(c Coords) *int {
+func (f Fields) get(c Coords) *int {
 	return &f[c[0]][c[1]]
 }
 
-func (f *Fields) set(c Coords, p int) {
+func (f Fields) set(c Coords, p int) {
 	f[c[0]][c[1]] = p
 }
 
@@ -164,13 +172,13 @@ func swapInts(p, q *int) {
 	*p, *q = *q, *p
 }
 
-func (f *Fields) swap(x, y Coords) {
+func (f Fields) swap(x, y Coords) {
 	swapInts(f.get(x), f.get(y))
 }
 
-func (f *Fields) relabelConnected(c Coords, p int, q int) int {
+func (f Fields) relabelConnected(c Coords, p int, q int) int {
 	res := 0
-	if c.inRange() && *f.get(c) == p {
+	if c.inRange(f) && *f.get(c) == p {
 		f.set(c, q)
 		res++
 		for dir := 0; dir < 4; dir++ {
@@ -180,41 +188,57 @@ func (f *Fields) relabelConnected(c Coords, p int, q int) int {
 	return res
 }
 
+func (f Fields) cloneZero() (g Fields) {
+	g = make([][]int, len(f))
+	for i := range f {
+		g[i] = make([]int, len(f[i]))
+	}
+	return
+}
+
+func (f Fields) clone() (g Fields) {
+	g = make([][]int, len(f))
+	for i := range f {
+		g[i] = make([]int, len(f[i]))
+		for j, v := range f[i] {
+			g[i][j] = v
+		}
+	}
+	return
+}
+
 // Calculates the distance to the nearest friendly unit from the unit
 // indicated by the given coordinates.  Returns 0 if no friendly units
 // are reachable.
-func (f *Fields) distanceToNearestUnit(c Coords, player int) int {
-	var dist [S][S]int
-	var queue [S * S]Coords
-	qlen := 0
+func (f Fields) distanceToNearestUnit(c Coords, player int) int {
+	dist := f.cloneZero()
+	queue := make([]Coords, 0, 4)
 	var markUnit func(Coords, int)
 	markUnit = func(c Coords, player int) {
 		dist[c[0]][c[1]] = -1
 		for dir := 0; dir < 4; dir++ {
 			d := c.stepTo(dir)
-			if d.inRange() && dist[d[0]][d[1]] == 0 {
+			if d.inRange(f) && dist[d[0]][d[1]] == 0 {
 				dist[d[0]][d[1]] = 1
 				switch *f.get(d) {
 				case player:
 					markUnit(d, player)
 				default:
-					queue[qlen] = d
-					qlen++
+					queue = append(queue, d)
 				}
 			}
 		}
 	}
 	markUnit(c, *f.get(c))
-	for qpos := 0; qpos < qlen; qpos++ {
+	for qpos := 0; qpos < len(queue); qpos++ {
 		c = queue[qpos]
 		e := dist[c[0]][c[1]]
 		switch *f.get(c) {
 		case 0:
 			for dir := 0; dir < 4; dir++ {
 				d := c.stepTo(dir)
-				if d.inRange() && dist[d[0]][d[1]] == 0 {
-					queue[qlen] = d
-					qlen++
+				if d.inRange(f) && dist[d[0]][d[1]] == 0 {
+					queue = append(queue, d)
 					dist[d[0]][d[1]] = e + 1
 				}
 			}
@@ -226,6 +250,7 @@ func (f *Fields) distanceToNearestUnit(c Coords, player int) int {
 }
 
 func (f Fields) valid(move Move) bool {
+	f = f.clone()
 	player := *f.get(move[0])
 	dist := f.distanceToNearestUnit(move[0], player)
 	if dist == 0 {
@@ -242,7 +267,7 @@ func (f Fields) valid(move Move) bool {
 }
 
 func (s *State) Valid(m Move) bool {
-	return m.inRange() && *s.Fields.get(m[0]) == s.NextPlayer() &&
+	return m.inRange(s.Fields) && *s.Fields.get(m[0]) == s.NextPlayer() &&
 		*s.Fields.get(m[1]) == 0 && s.Fields.valid(m)
 }
 
@@ -281,24 +306,30 @@ func (s *State) Scores() (int, int) {
 	}
 }
 
-func (fields *Fields) WriteBoard(w io.Writer) {
-	var line [S + 1]byte
-	line[S] = '\n'
-	for i := 0; i < S; i++ {
-		for j := 0; j < S; j++ {
-			switch fields[i][j] {
-			case 0:
-				line[j] = '.'
-			case -1:
-				line[j] = '-'
-			case +1:
-				line[j] = '+'
-			default:
-				line[j] = '#'
-			}
-		}
-		w.Write(line[:])
+func (fields Fields) WriteBoard(w io.Writer) {
+	var n, m int
+	for _, row := range fields {
+		n += len(row) + 1
 	}
+	buf := make([]byte, n)
+	for _, row := range fields {
+		for _, val := range row {
+			switch val {
+			case 0:
+				buf[m] = '.'
+			case -1:
+				buf[m] = '-'
+			case +1:
+				buf[m] = '+'
+			default:
+				buf[m] = '#'
+			}
+			m++
+		}
+		buf[m] = '\n'
+		m++
+	}
+	w.Write(buf)
 }
 
 // TODO: this should return an error
