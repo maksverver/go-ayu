@@ -1,6 +1,6 @@
 // Global variables
 BOARD_ELEM = document.getElementById('board')
-S = 11;
+BOARD_SIZE = getParameter('size') || 11;
 
 (function() {
 	'use strict'
@@ -55,13 +55,13 @@ S = 11;
 		label.appendChild(document.createTextNode(text))
 	}
 
-	for (var r = 0; r < S; ++r) {
+	for (var r = 0; r < BOARD_SIZE; ++r) {
 		var row = BOARD_ELEM.appendChild(document.createElement('div'))
 		row.className = 'row'
 		row.id = 'row_' + r
-		addLabel(11 - r)
+		addLabel(BOARD_SIZE - r)
 		cells.push([])
-		for (var c = 0; c < S; ++c) {
+		for (var c = 0; c < BOARD_SIZE; ++c) {
 			var cell = row.appendChild(document.createElement('div'))
 			cell.className = 'cell'
 			cell.id = 'cell_' + r + '_' + c
@@ -79,7 +79,7 @@ S = 11;
 	}
 	var row = BOARD_ELEM.appendChild(document.createElement('div'))
 	addLabel("")
-	for (var c = 0; c < S; ++c) {
+	for (var c = 0; c < BOARD_SIZE; ++c) {
 		addLabel(String.fromCharCode("A".charCodeAt(0) + c))
 	}
 })()

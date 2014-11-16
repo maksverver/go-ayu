@@ -184,6 +184,7 @@ func handleCreate(w http.ResponseWriter, r *http.Request) {
 	writeJsonResponse(w, map[string]interface{}{
 		"game": id,
 		"keys": games[id].Keys,
+		"size": create.Size,
 	})
 }
 

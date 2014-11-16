@@ -5,7 +5,21 @@
  </head>
  <body>
   <h1>Ayu</h1>
-  <p id="loading">Please wait while creating a new game...</p>
+  <div id="loading"><form id="createGameForm">
+   <h3>Create a new game</h3>
+   <table><tr><th>Board size:&nbsp;</th><td><select id="boardSize">
+    <option value="3">3x3</option>
+    <option value="5">5x5</option>
+    <option value="7">7x7</option>
+    <option value="9">9x9</option>
+    <option value="11" selected>11x11</option>
+    <option value="13">13x13</option>
+    <option value="15">15x15</option>
+    <option value="17">17x17</option>
+    <option value="19">19x19</option>
+   </select></td></th></tr>
+   <tr><td></td><td><input type="submit" value="Create Game"></td></tr></table>
+  </form></div>
   <div id="loaded" style="display:none">
     <p>New game created!</p>
     <ul>
