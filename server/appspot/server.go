@@ -3,5 +3,5 @@ package main
 import "ayu/server"
 
 func init() {
-	server.Setup("", 55)
+	server.Setup("", 55, nil)
 }
