@@ -130,7 +130,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJsonResponse(w, map[string]interface{}{
 			"nextPlayer": game.State.NextPlayer(),
-			"size":       ayu.S,
+			"size":       len(game.State.Fields),
 			"fields":     game.State.Fields,
 			"history":    game.State.History,
 			"timeUsed":   time_used})
@@ -152,6 +152,23 @@ func handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Print("POST /create")
+	var create struct {
+		Size int
+	}
+	if body, err := ioutil.ReadAll(r.Body); err != nil {
+		http.Error(w, "Internal Server Error", 500)
+		return
+	} else if err := json.Unmarshal(body, &create); err != nil {
+		http.Error(w, "Bad Request\n"+err.Error(), 400)
+		return
+	}
+	if create.Size == 0 {
+		create.Size = ayu.DefaultSize
+	}
+	if !ayu.IsValidSize(create.Size) {
+		http.Error(w, "Bad Request\nInvalid board size.", 400)
+		return
+	}
 	id := createRandomKey()
 	games_mutex.Lock()
 	defer games_mutex.Unlock()
@@ -160,7 +177,7 @@ func handleCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", 500)
 		return
 	}
-	games[id] = &game{ayu.CreateState(),
+	games[id] = &game{ayu.CreateState(create.Size),
 		[2]time.Duration{0, 0}, time.Time{},
 		[2]string{createRandomKey(), createRandomKey()},
 		list.New(), sync.Mutex{}}
@@ -186,7 +203,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if body, err := ioutil.ReadAll(r.Body); err != nil {
 		http.Error(w, "Internal Server Error", 500)
 		return
-	} else if json.Unmarshal(body, &update) != nil {
+	} else if err := json.Unmarshal(body, &update); err != nil {
 		http.Error(w, "Bad Request\n"+err.Error(), 400)
 		return
 	}

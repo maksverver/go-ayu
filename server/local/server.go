@@ -15,11 +15,11 @@ var poll_delay = flag.Int("poll_delay", 55, "Maximum time to block on poll reque
 
 func main() {
 	flag.Parse()
-        if len(flag.Args()) > 0 {
-                log.Fatalln("Extra command line arguments", flag.Args())
-        }
+	if len(flag.Args()) > 0 {
+		log.Fatalln("Extra command line arguments", flag.Args())
+	}
 	addr := fmt.Sprintf("%s:%d", *host, *port)
-	server.Setup(*static_data_dir, *poll_delay)
+	server.Setup(*static_data_dir, *poll_delay, nil)
 	log.Println("Binding to address:", addr)
 	log.Fatalln(http.ListenAndServe(addr, nil))
 }

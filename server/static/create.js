@@ -20,5 +20,5 @@
 		}
 	}
 	req.open('POST', 'create', true)
-	req.send()
+	req.send(JSON.stringify({}))
 })()
