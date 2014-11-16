@@ -306,7 +306,7 @@ func (s *State) Scores() (int, int) {
 	}
 }
 
-func (fields Fields) WriteBoard(w io.Writer) {
+func (fields Fields) WriteBoard(w io.Writer) (int, error) {
 	var n, m int
 	for _, row := range fields {
 		n += len(row) + 1
@@ -329,15 +329,15 @@ func (fields Fields) WriteBoard(w io.Writer) {
 		buf[m] = '\n'
 		m++
 	}
-	w.Write(buf)
+	return w.Write(buf)
 }
 
-// TODO: this should return an error
-func (s *State) WriteLog(w io.Writer) {
-	for i := 0; i < len(s.History)/2; i++ {
-		fmt.Fprintf(w, "%3d. %-8s %s\n", i+1, s.History[2*i], s.History[2*i+1])
+func (s *State) WriteLog(w io.Writer) (n int, err error) {
+	for i := 0; i < len(s.History)/2 && err == nil; i++ {
+		n, err = fmt.Fprintf(w, "%3d. %-8s %s\n", i+1, s.History[2*i], s.History[2*i+1])
 	}
-	if len(s.History)%2 == 1 {
-		fmt.Fprintf(w, "%3d. %s\n", len(s.History)/2+1, s.History[len(s.History)-1])
+	if len(s.History)%2 == 1 && err == nil {
+		n, err = fmt.Fprintf(w, "%3d. %s\n", len(s.History)/2+1, s.History[len(s.History)-1])
 	}
+	return
 }

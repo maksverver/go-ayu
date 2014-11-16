@@ -61,33 +61,32 @@ func TestParseMove(t *testing.T) {
 	test("A7~C3", Move{}, false)
 }
 
-func TestCreateStateSmall(t *testing.T) {
-	state := CreateState(3)
-	var b bytes.Buffer
-	(&state.Fields).WriteBoard(&b)
-	if string(b.Bytes()) != ".+.\n-.-\n.+.\n" {
-		t.Error(string(b.Bytes()))
-	}
-}
-
 func TestCreateState(t *testing.T) {
-	state := CreateState(DefaultSize)
-	var b bytes.Buffer
-	(&state.Fields).WriteBoard(&b)
-	if string(b.Bytes()) != `.+.+.+.+.+.
--.-.-.-.-.-
-.+.+.+.+.+.
--.-.-.-.-.-
-.+.+.+.+.+.
--.-.-.-.-.-
-.+.+.+.+.+.
--.-.-.-.-.-
-.+.+.+.+.+.
--.-.-.-.-.-
-.+.+.+.+.+.
-` {
-		t.Error(string(b.Bytes()))
+	test := func(size int, expected string) {
+		state := CreateState(size)
+		var b bytes.Buffer
+		n,err := (&state.Fields).WriteBoard(&b)
+		output := string(b.Bytes())
+		if n != size*(size + 1) || err != nil {
+			t.Error(size*(size + 1), n, err)
+		}
+		if output != expected {
+			t.Error(output, expected)
+		}
 	}
+	test(3, ".+.\n-.-\n.+.\n")
+	test(DefaultSize, `.+.+.+.+.+.
+-.-.-.-.-.-
+.+.+.+.+.+.
+-.-.-.-.-.-
+.+.+.+.+.+.
+-.-.-.-.-.-
+.+.+.+.+.+.
+-.-.-.-.-.-
+.+.+.+.+.+.
+-.-.-.-.-.-
+.+.+.+.+.+.
+`)
 }
 
 func testWriteLog(t *testing.T, moves string, expected string) {
