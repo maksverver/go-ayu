@@ -78,10 +78,10 @@ poll:
 				if err := json.Unmarshal(body, &state); err != nil {
 					return err
 				}
-				if state.Size != ayu.S {
+				if state.Size != ayu.DefaultSize {
 					return fmt.Errorf(
 						"Unexpected board size: %d (expected: %d)",
-						state.Size, ayu.S)
+						state.Size, ayu.DefaultSize)
 				}
 				if len(state.History) != version {
 					return fmt.Errorf(
@@ -195,7 +195,7 @@ func main() {
 		fmt.Println("Could not execute player command! ", err)
 		return
 	}
-	game_state.Create()
+	game_state.Create(ayu.DefaultSize)
 	go io.Copy(os.Stderr, player_err)
 	lines := make(chan string)
 	go readStrings(player_out, '\n', lines)
