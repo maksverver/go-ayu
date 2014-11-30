@@ -17,11 +17,11 @@ var poll_delay time.Duration
 var database SaveLoader
 
 type Saver interface {
-	Save(kind, key, value string) error
+	Save(kind string, key, value []byte) error
 }
 
 type Loader interface {
-	Load(kind, key string) (string, error)
+	Load(kind string, key []byte) ([]byte, error)
 }
 
 type SaveLoader interface {
@@ -53,10 +53,11 @@ func getGame(id string) (res *game) {
 	games_mutex.Unlock()
 	if res == nil && database != nil {
 		// Game not in memory. Try to read it from database instead.
-		if encoded, err := database.Load("Game", id); err == nil {
+		if encoded, err := database.Load("Game", []byte(id)); err == nil {
 			var game game
 			if err := json.Unmarshal([]byte(encoded), &game); err != nil {
-				log.Println("Could not unmarshal game", encoded, err)
+				log.Printf("Could not unmarshal game %s: %s. (Encoded: '%s')",
+					id, err, encoded)
 			} else {
 				game.waiting = list.New()
 				res = &game
@@ -69,6 +70,8 @@ func getGame(id string) (res *game) {
 				}
 				games_mutex.Unlock()
 			}
+		} else {
+			log.Printf("Failed to load game %s: %s", id, err)
 		}
 	}
 	return
@@ -239,8 +242,8 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if database != nil {
 		if encoded, err := json.Marshal(game); err != nil {
 			log.Fatalln(err)
-		} else if err := database.Save("Game", update.Game, string(encoded)); err != nil {
-			log.Println("Could not save game.", err)
+		} else if err := database.Save("Game", []byte(update.Game), encoded); err != nil {
+			log.Printf("Failed to save game %s: %s", update.Game, err)
 		}
 	}
 

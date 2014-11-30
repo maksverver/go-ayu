@@ -11,6 +11,5 @@ server/static/game.js:
    (do I already get them from the server?)
 
 server/server.go:
- - implement DataStore for storing games
-   (use Redis on Heroku)
+ - implement SaveLoader for storing games on AppEngine (or Redis on Heroku)
  - either fix Heroku support or remove related files
