@@ -55,12 +55,13 @@ BOARD_SIZE = getParameter('size') || 11;
 		label.appendChild(document.createTextNode(text))
 	}
 
-	for (var r = 0; r < BOARD_SIZE; ++r) {
+
+	for (var r = BOARD_SIZE - 1; r >= 0; --r) {
 		var row = BOARD_ELEM.appendChild(document.createElement('div'))
 		row.className = 'row'
 		row.id = 'row_' + r
-		addLabel(BOARD_SIZE - r)
-		cells.push([])
+		addLabel(r + 1)
+		cells[r] = []
 		for (var c = 0; c < BOARD_SIZE; ++c) {
 			var cell = row.appendChild(document.createElement('div'))
 			cell.className = 'cell'
@@ -74,7 +75,7 @@ BOARD_SIZE = getParameter('size') || 11;
 					'col': parseInt(parts[2]) })
 				BOARD_ELEM.dispatchEvent(event)
 			})
-			cells[r].push(cell)
+			cells[r][c] = cell
 		}
 	}
 	var row = BOARD_ELEM.appendChild(document.createElement('div'))

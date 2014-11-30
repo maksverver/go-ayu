@@ -1,9 +1,3 @@
-SOON:
- - fix client!
- - invert board in the web client too, to make it consistent with the game
-   (otherwise, games played against the command-line client have different
-    history in the web client compared to the game log)
-
 index.html:
  - (low prio): after creating a game, should add keys to the URL parameters
    to fix the back/reload keys.

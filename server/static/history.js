@@ -6,7 +6,7 @@ HISTORY_ELEM = document.getElementById('history');
 	var selected = -1
 
 	function formatCoords(coords) {
-		return String.fromCharCode(65 + coords[1]) + (BOARD_SIZE - coords[0])
+		return String.fromCharCode(65 + coords[1]) + (coords[0] + 1)
 	}
 	function formatMove(move) {
 		return formatCoords(move[0]) + '-' + formatCoords(move[1])
