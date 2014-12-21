@@ -14,7 +14,7 @@ import "sync"
 import "time"
 
 var poll_delay time.Duration
-var database SaveLoader
+var database_getter func(*http.Request) SaveLoader
 
 type Saver interface {
 	Save(kind string, key, value []byte) error
@@ -47,34 +47,47 @@ type Client struct {
 var games = make(map[string]*game)
 var games_mutex sync.Mutex // must be held while accessing games
 
-func getGame(id string) (res *game) {
-	games_mutex.Lock()
-	res = games[id]
-	games_mutex.Unlock()
-	if res == nil && database != nil {
-		// Game not in memory. Try to read it from database instead.
-		if encoded, err := database.Load("Game", []byte(id)); err == nil {
-			var game game
-			if err := json.Unmarshal([]byte(encoded), &game); err != nil {
-				log.Printf("Could not unmarshal game %s: %s. (Encoded: '%s')",
-					id, err, encoded)
-			} else {
-				game.waiting = list.New()
-				res = &game
-				games_mutex.Lock()
-				if games[id] != nil {
-					// Some other thread already loaded the game. Use it instead.
-					res = games[id]
-				} else {
-					games[id] = res
-				}
-				games_mutex.Unlock()
-			}
-		} else {
-			log.Printf("Failed to load game %s: %s", id, err)
-		}
+func getDatabase(r *http.Request) SaveLoader {
+	if database_getter == nil {
+		return nil
 	}
-	return
+	return database_getter(r)
+}
+
+func getGame(r *http.Request, id string) *game {
+	games_mutex.Lock()
+	res := games[id]
+	games_mutex.Unlock()
+	if res != nil {
+		return res
+	}
+	// Game not in memory. Try to read it from database instead.
+	db := getDatabase(r)
+	if db == nil {
+		return nil
+	}
+	if encoded, err := db.Load("Game", []byte(id)); err != nil {
+		log.Printf("Failed to load game %s: %s", id, err)
+		return nil
+	} else {
+		var game game
+		if err := json.Unmarshal([]byte(encoded), &game); err != nil {
+			log.Printf("Could not unmarshal game %s: %s. (Encoded: '%s')",
+				id, err, encoded)
+		} else {
+			game.waiting = list.New()
+			res = &game
+			games_mutex.Lock()
+			if games[id] != nil {
+				// Some other thread already loaded the game. Use it instead.
+				res = games[id]
+			} else {
+				games[id] = res
+			}
+			games_mutex.Unlock()
+		}
+		return res
+	}
 }
 
 func writeJsonResponse(w http.ResponseWriter, obj interface{}) {
@@ -93,7 +106,7 @@ func handlePoll(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Print("GET /poll")
 
-	game := getGame(r.FormValue("game"))
+	game := getGame(r, r.FormValue("game"))
 	if game == nil {
 		http.Error(w, "Not Found", 404)
 		return
@@ -211,7 +224,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request\n"+err.Error(), 400)
 		return
 	}
-	game := getGame(update.Game)
+	game := getGame(r, update.Game)
 	if game == nil {
 		http.Error(w, "Not Found", 404)
 		return
@@ -239,10 +252,10 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	game.LastTime = now
 
-	if database != nil {
+	if db := getDatabase(r); db != nil {
 		if encoded, err := json.Marshal(game); err != nil {
 			log.Fatalln(err)
-		} else if err := database.Save("Game", []byte(update.Game), encoded); err != nil {
+		} else if err := db.Save("Game", []byte(update.Game), encoded); err != nil {
 			log.Printf("Failed to save game %s: %s", update.Game, err)
 		}
 	}
@@ -257,7 +270,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Setup(static_data_dir string, poll_delay_seconds int, db SaveLoader) {
+func Setup(static_data_dir string, poll_delay_seconds int, db_getter func(*http.Request) SaveLoader) {
 	http.HandleFunc("/poll", handlePoll)
 	http.HandleFunc("/create", handleCreate)
 	http.HandleFunc("/update", handleUpdate)
@@ -270,5 +283,5 @@ func Setup(static_data_dir string, poll_delay_seconds int, db SaveLoader) {
 		http.Handle("/", http.FileServer(http.Dir(static_data_dir)))
 	}
 	poll_delay = time.Duration(poll_delay_seconds) * time.Second
-	database = db
+	database_getter = db_getter
 }

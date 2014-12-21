@@ -20,7 +20,8 @@ func main() {
 	}
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 	storage := local.LocalStorage{*storage_dir}
-	server.Setup(*static_data_dir, *poll_delay, &storage)
+	server.Setup(*static_data_dir, *poll_delay,
+		func(*http.Request) server.SaveLoader { return &storage })
 	log.Println("Binding to address:", addr)
 	log.Fatalln(http.ListenAndServe(addr, nil))
 }
